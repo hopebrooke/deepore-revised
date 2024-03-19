@@ -21,6 +21,8 @@ import DeePore as dp
 import numpy as np
 import h5py
 import matplotlib.pyplot as plt
+from scipy.ndimage import distance_transform_edt as distance
+from tensorflow.keras.layers import MaxPooling2D
 
 # dp.show_feature_maps doesn't work on ipynb due to floats/int conversion
 # redefining here with same code but added casting
@@ -122,7 +124,6 @@ def create_compact_dataset_3(Path_complete,Path_compact):
 # changing slice vol also means we need to change how the entries are shown
 # same as dp.showentry
 
-
 def showentry_2(A):
     """shows 6 slices of a volume data """
     A=np.squeeze(A)
@@ -187,4 +188,63 @@ def showentry_3(A):
     plt.imshow(np.squeeze(A[:,:,int(3 * A.shape[2]/4)]), cmap=CM, interpolation='nearest')
 
     plt.savefig('images/First_entry_3.png')
+
+# load model needs to be updated for different slice volumes
+# copied from DeePore but adjusted array shape for 6/9 instead of 3
+
+def loadmodel_2(ModelType=3):
+    Path='Model'+str(ModelType)+'.h5';
+    MIN,MAX=np.load('minmax.npy')
+    INPUT_SHAPE=[1,128,128,6];
+    OUTPUT_SHAPE=[1,1515,1];
+    model=dp.modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+    model.load_weights(Path)
+    return model
+
+
+def loadmodel_3(ModelType=3):
+    Path='Model'+str(ModelType)+'.h5';
+    MIN,MAX=np.load('minmax.npy')
+    INPUT_SHAPE=[1,128,128,9];
+    OUTPUT_SHAPE=[1,1515,1];
+    model=dp.modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+    model.load_weights(Path)
+    return model
+
+# ecl distance calculations need to be changed for different slice volumes
+# copied from deepore with adjusted shape arrays
+
+
+def ecl_distance_2(A):
+    B=np.zeros((A.shape[0],128,128,6))
+    for I in range(A.shape[0]):
+        for J in range(A.shape[3]):
+            t=distance(np.squeeze(1-A[I,:,:,J]))-distance(np.squeeze(A[I,:,:,J]))
+            # t=normalize(t)
+            t=np.float32(t)/64
+
+            t[t>1]=1
+            t[t<-1]=-1
+
+            t = MaxPooling2D((2, 2)) (np.reshape(t,(1,256,256,1)))
+            t=np.float64(t)
+            B[I,:,:,J]=np.squeeze(t)
+    return B
+
+
+def ecl_distance_3(A):
+    B=np.zeros((A.shape[0],128,128,9))
+    for I in range(A.shape[0]):
+        for J in range(A.shape[3]):
+            t=distance(np.squeeze(1-A[I,:,:,J]))-distance(np.squeeze(A[I,:,:,J]))
+            # t=normalize(t)
+            t=np.float32(t)/64
+
+            t[t>1]=1
+            t[t<-1]=-1
+
+            t = MaxPooling2D((2, 2)) (np.reshape(t,(1,256,256,1)))
+            t=np.float64(t)
+            B[I,:,:,J]=np.squeeze(t)
+    return B
 
