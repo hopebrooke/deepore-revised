@@ -210,8 +210,8 @@ def create_compact_dataset_1(Path_complete,Path_compact):
     for I in range(S[0][0]):
         X=readh5slice(Path_complete,'X',[I])
         Y=readh5slice(Path_complete,'Y',[I])
-        X=slicevol(X, 1)
-        X=ecl_distance(X, 1)
+        X=slicevol_1(X)
+        X=ecl_distance_1(X)
         writeh5slice(X,Path_compact,'X',Shape=[128,128,3])
         writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
 
@@ -223,8 +223,8 @@ def create_compact_dataset_2(Path_complete,Path_compact):
     for I in range(S[0][0]):
         X=readh5slice(Path_complete,'X',[I])
         Y=readh5slice(Path_complete,'Y',[I])
-        X=slicevol(X, 2)
-        X=ecl_distance(X, 2)
+        X=slicevol_2(X)
+        X=ecl_distance_2(X)
         writeh5slice(X,Path_compact,'X',Shape=[128,128,6])
         writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
 
@@ -236,8 +236,8 @@ def create_compact_dataset_3(Path_complete,Path_compact):
     for I in range(S[0][0]):
         X=readh5slice(Path_complete,'X',[I])
         Y=readh5slice(Path_complete,'Y',[I])
-        X=slicevol(X, 3)
-        X=ecl_distance(X, 3)
+        X=slicevol_3(X)
+        X=ecl_distance_3(X)
         writeh5slice(X,Path_compact,'X',Shape=[128,128,9])
         writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
 
@@ -293,7 +293,7 @@ def ecl_distance(A, n):
   if n == 1:
     ecl_distance_1(A)
   elif n == 2:
-    ecl_distanc_2(A)
+    ecl_distance_2(A)
   elif n == 3:
     ecl_distance_3(A)
   else:
