@@ -243,49 +243,49 @@ def create_compact_dataset_3(Path_complete,Path_compact):
 
 # NEW FUNCTION
 # Reason -> directs to correct load model func based on how many slices requested
-def loadmodel(n, ModelType=3):
+def loadmodel(ModelType=3, properties=1515, n=1):
   if n == 1:
-    loadmodel_1(ModelType)
+    loadmodel_1(ModelType, properties)
   elif n == 2:
-    loadmodel_2(ModelType)
+    loadmodel_2(ModelType, properties)
   elif n == 3:
-    loadmodel_3(ModelType)
+    loadmodel_3(ModelType, properties)
   else:
     print("Error: Not a valid slice number.")
 
 # REVISED DEEPORE
-# Reason -> need to change names of models saved for different slices
-# Revision -> model + modeltype + '_1'
-def loadmodel_1(ModelType=3): # model type 3 seems to be the better one
+# Reason -> need to change names of models saved for different slices, change output shape for different property numbers
+# Revision -> model + modeltype + '_1', new parameter: properties
+def loadmodel_1(ModelType=3, properties=1515): # model type 3 seems to be the better one
     Path='Model'+str(ModelType)+'_1.h5';
     MIN,MAX=np.load('minmax_1.npy')
     INPUT_SHAPE=[1,128,128,3];
-    OUTPUT_SHAPE=[1,1515,1];
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+    OUTPUT_SHAPE=[1,properties,1];
+    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType,properties)
     model.load_weights(Path)
     return model
 
 # REVISED DEEPORE
-# Reason -> load model needs to be updated for different slice volumes
-# Revision -> adjusted array shape for 6 instead of 3
-def loadmodel_2(ModelType=3):
+# Reason -> load model needs to be updated for different slice volumes, change output shape for different property numbers
+# Revision -> adjusted array shape for 6 instead of 3,  new parameter: properties
+def loadmodel_2(ModelType=3, properties=1515):
     Path='Model'+str(ModelType)+'_2.h5';
     MIN,MAX=np.load('minmax_2.npy')
     INPUT_SHAPE=[1,128,128,6];
-    OUTPUT_SHAPE=[1,1515,1];
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+    OUTPUT_SHAPE=[1,properties,1];
+    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType, properties)
     model.load_weights(Path)
     return model
 
 # REVISED DEEPORE
-# Reason -> load model needs to be updated for different slice volumes
-# Revision -> adjusted array shape for 6 instead of 3
-def loadmodel_3(ModelType=3):
+# Reason -> load model needs to be updated for different slice volumes, change output shape for different property numbers
+# Revision -> adjusted array shape for 6 instead of 3,  new parameter: properties
+def loadmodel_3(ModelType=3, properties=1515):
     Path='Model'+str(ModelType)+'_3.h5';
     MIN,MAX=np.load('minmax_3.npy')
     INPUT_SHAPE=[1,128,128,9];
-    OUTPUT_SHAPE=[1,1515,1];
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+    OUTPUT_SHAPE=[1,properties,1];
+    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType, properties)
     model.load_weights(Path)
     return model
 
@@ -357,44 +357,70 @@ def ecl_distance_3(A):
     return B
 
 # REVISED DEEPORE
-# Reason -> seperate minmax files for different slice quantities
-# Revision -> takes slice num as parameter n, loads minmax_<n>.py
-def prep(Data, n):
-    print('Checking the data for outliers. Please wait...')
-    List=[]
-    with h5py.File(Data,'r') as f:
-        length=f['X'].shape[0]
-        MIN=np.ones((f['Y'].shape[1],1))*1e7
-        MAX=-MIN
-        counter=0
-        for I in range(length):
-            t2=f['Y'][counter,...]
-            y=t2.astype('float32')
-            D=int(np.sum(np.isnan(y)))+int(np.sum(np.isinf(y)))+int(y[1]>120)+int(y[4]>1.8)+int(y[0]<1e-4)+int(y[2]<1e-5)+int(y[14]>.7)
+# Reason -> seperate minmax files for different slice quantities, need to only record the properties wanted
+# Revision -> takes slice num as parameter n, loads minmax_<n>.py, takes properties list as parameter, retrived only properties specified, calculates min / max appropriately
+def prep(Data, n=1, properties=None):
 
-            if D>0:
-                pass
-            else:
-                List=np.append(List,counter)
-                y[0:15]=np.log10(y[0:15]) # applying log10 to handle range of order of magnitudes
-                maxid=np.argwhere(y>MAX)
-                minid=np.argwhere(y<MIN)
-                MAX[maxid[:,0]]=y[maxid[:,0]]
-                MIN[minid[:,0]]=y[minid[:,0]]
-            if counter % 100==0:
-                print('checking sample'+str(counter))
-            counter=counter+1
-        Singles=15
-        for I in range(15):
-            MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
-            MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
-    np.save('minmax_'+str(n)+'.npy',[MIN,MAX])
-    return List
+  num_single_vals = 0
+  num_range_vals = 0
+  if properties is None:
+    properties = list(range(1515))
+    num_single_vals = 15
+    num_range_vals = 15
+  else:
+    # map the properties from 1-30 to 1-1515
+    mapped_properties = []
+    for prop in properties:
+      # if under 15 just add to new array
+      if 0 <= prop < 15:
+        mapped_properties.append(prop)
+        num_single_vals += 1
+      # if over 15, add mapped 100 values
+      elif prop >= 15:
+        val = ((prop-15)*100)+15
+        num_range_vals += 1
+        for i in range (0, 100):
+          mapped_properties.append(val+i)
+    properties=mapped_properties
+
+  print('Checking the data for outliers. Please wait...')
+  List=[]
+  with h5py.File(Data,'r') as f:
+      length=f['X'].shape[0]
+      MIN=np.ones((f['Y'].shape[1],1))*1e7
+      MAX=-MIN
+      counter=0
+      for I in range(length):
+          t2=f['Y'][counter,properties]
+          y=t2.astype('float32')
+          D=int(np.sum(np.isnan(y)))+int(np.sum(np.isinf(y)))+int(y[1]>120)+int(y[4]>1.8)+int(y[0]<1e-4)+int(y[2]<1e-5)+int(y[14]>.7)
+
+          if D>0:
+              pass
+          else:
+              List=np.append(List,counter)
+              y[0:num_single_vals]=np.log10(y[0:num_single_vals]) # applying log10 to handle range of order of magnitudes
+              maxid=np.argwhere(y>MAX)
+              minid=np.argwhere(y<MIN)
+              MAX[maxid[:,0]]=y[maxid[:,0]]
+              MIN[minid[:,0]]=y[minid[:,0]]
+          if counter % 100==0:
+              print('checking sample: '+str(counter))
+          counter=counter+1
+      print("Singles: "+str(num_single_vals))
+      print("Num_range: "+str(int(num_range_vals(100))))
+      Singles=num_single_vals
+      for I in range(num_range_vals):
+          print("MAx checkuigbn")
+          MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
+          MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
+  np.save('minmax_'+str(n)+'.npy',[MIN,MAX])
+  return List
 
 # REVISED DEEPORE
-# Reason -> different slice volumes have different minmax and model names
-# Revision -> takes slice vol as parameter n (defaults to 1 if not), and loads/saves appropriate minmax, logs, models
-def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=9, n=1):
+# Reason -> different slice volumes have different minmax and model names, takes num of properties to predict
+# Revision -> takes slice vol as parameter n (defaults to 1 if not), and loads/saves appropriate minmax, logs, models, new parameter property num
+def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=9, n=1, property_num=1515):
     from tensorflow.keras.callbacks import ModelCheckpoint
     MIN,MAX=np.load('minmax_'+str(n)+'.npy')
     SaveName='Model'+str(ModelType)+'_'+str(n)+'.h5';
@@ -435,7 +461,7 @@ def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_s
     callbacks_list = []
     callbacks_list = [MyCallback()]
     # end of callbacks
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType, property_num)
 
 
     if retrain:
@@ -450,9 +476,15 @@ def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_s
     return model
 
 # REVISED DEEPORE
-# Reason -> changing load/save names depending on model slices
-# Revision -> Takes slice vol as parameter n, changes minmax load name and tested model save name
-def testmodel(model,DataName,TestList,ModelType=3, n=1):
+# Reason -> changing load/save names depending on model slices, need to define how many single value properties are being predicted, change which variable names are shown based on which properties are predicted
+# Revision -> Takes slice vol as parameter n, changes minmax load name and tested model save name, takes properties predicted as parameter, uses num of single value instead of 15, and uses list to determine which variable names are used
+def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
+
+    if properties is None:
+      properties = list(range(15))
+    # calculate the number of single values
+    num_single_vals = sum(1 for prop in properties if prop < 15)
+
     MIN,MAX=np.load('minmax_'+str(n)+'.npy')
     G=gener(len(TestList),DataName,TestList,MIN,MAX)
     L=next(G)
@@ -466,18 +498,18 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1):
     MAX=np.reshape(MAX,(1,y.shape[1]))
     y=np.multiply(y,(MAX-MIN))+MIN
     y2=np.multiply(y2,(MAX-MIN))+MIN
-    y[:,0:15]=10**y[:,0:15]
-    y2[:,0:15]=10**y2[:,0:15]
+    y[:,0:single_val_properties]=10**y[:,0:single_val_properties]
+    y2[:,0:single_val_properties]=10**y2[:,0:single_val_properties]
 
     # save test results as mat file for postprocessing with matlab
     import scipy.io as sio
     sio.savemat('Tested_Data_Model'+str(ModelType)+'_'+str(n)+'.mat',{'y':y,'y2':y2})
-    # #  Show prediction of 15 single-value features
+    # #  Show prediction of single-value features
     fig=plt.figure(figsize=(30,40))
     plt.rcParams.update({'font.size': 30})
     with open('VarNames.txt') as f:
         VarNames = list(f)
-    for I in range(15):
+    for I in range(single_val_properties):
         ax = fig.add_subplot(5,3,I+1)
         X=y[:,I]
         Y=y2[:,I]
@@ -485,7 +517,7 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1):
         plt.ylabel('Predicted')
         plt.xlabel('Ground truth')
         plt.tick_params(direction="in")
-        plt.text(.5,.9,VarNames[I],horizontalalignment='center',transform=ax.transAxes)
+        plt.text(.5,.9,VarNames[properties[I]],horizontalalignment='center',transform=ax.transAxes) # make sure to get relevant var names if subset of properties
         plt.xlim(np.min(X),np.max(X))
         plt.ylim(np.min(Y),np.max(Y))
         if I==0:
@@ -561,37 +593,307 @@ def feedsampledata(A=None,FileName=None, n=1):
     return B
 
 # REVISED DEEPORE
-# Reason -> Minmax depends on slice volume
-# Revision -> takes slice vol as parameter n and adjust file loading accordingly
-def predict(model,A,res=5, n=1):
+# Reason -> Minmax depends on slice volume, need array of values that are in properties predicted
+# Revision -> takes slice vol as parameter n and adjust file loading accordingly, maps properties predicted to y responses from model
+def predict(model,A,res=5, n=1, properties=None):
+
+    # set to 30 (all 1515) if not specified
+    if properties is None:
+      properties = list(range(30))
+    # calculate the number of single values
+    num_single_vals = sum(1 for prop in properties if prop < 15)
+    num_range_vals = sum(1 for prop in properties if prop >= 15)
+
     MIN,MAX=np.load('minmax_'+str(n)+'.npy')
     y=model.predict(A)
     MIN=np.reshape(MIN,(1,y.shape[1]))
     MAX=np.reshape(MAX,(1,y.shape[1]))
     y=np.multiply(y,(MAX-MIN))+MIN
-    y[:,0:15]=10**y[:,0:15]
-    # y[:,1]=10**y[:,1]
     y=np.mean(y,axis=0)
-    val=y[0:15]
-    val[0]=val[0]*res*res
-    val[3]=val[3]/res/res/res
-    val[10]=val[10]/res
-    val[6]=val[6]*res
-    val[7]=val[7]*res
-    val[8]=val[8]*res
-    val[13]=val[13]*res
+
+    values = []
+
+    # single values
+    for i in range (0, num_single_vals):
+      prop = properties[i]
+      value = y[i]
+      # normalise single values
+      if prop < 15:
+        value=10**y[i]
+        # loop to check which prooperties are being predcted
+        if prop == 0:
+          value *= res * res
+        elif prop == 3:
+          value /= res / res / res
+        elif prop == 10:
+          value /= res
+        elif prop in [6,7,8,13]:
+          value *= res
+      values.append(value)
+
     d=100
-    output=val
-    for I in range(15):
-        func=y[I*d+15:(I+1)*d+15]
-        if I in [19,20,21,22,23,24,29]:
-            func=func*res
-        if I in [18]:
-            func=func/res
-        if I in [25]:
-            func=func*res*res
-        output=np.append(output,func)
-    return output
+    # loop through each range
+    for i in range (0, num_range_vals):
+      # get that range based on how many single and range values calculated:
+      func=y[(i*d)+num_single_vals:(i+1)*d + num_single_vals]
+      if properties[i+num_single_vals] in [19,20,21,23,24,29]:
+        func *= res
+      elif properties[i+num_single_vals] in [18]:
+        func /= res
+      elif properties[i+num_single_vals] in [25]:
+        func *= res * res
+      values.append(func)
+
+    return values
+
+# REVISED DEEPORE
+# Reason -> need to change which prediction values are displayed based on what properties have been predicted
+# Revision -> Takes property list as parameter, used to know how many to print, and which variable name to associate with what prediction
+def prettyresult(vals,FileName,units='um',verbose=1, properties=None):
+
+    # set to 30 (all 1515) if not specified
+    if properties is None:
+      properties = list(range(30))
+    # calculate the number of single values
+    num_single_vals = sum(1 for prop in properties if prop < 15)
+    num_range_vals = sum(1 for prop in properties if prop >= 15)
+
+    vals=np.squeeze(vals)
+    with open('VarNames.txt') as f:
+        VarNames = list(f)
+    b=np.round(vals[0:num_single_vals],7)
+    f = open(FileName, 'w')
+    f.write('DeePore output results including 15 single-value' +'\n'+ 'paramters, 4 functions and 11 distributions'+'\n')
+    f.write('_' * 50+'\n')
+    f.write('        ### Single-value parameters ###'+'\n')
+    f.write('_' * 50+'\n')
+    f.write('\n')
+    t='Properties'
+    spa=' ' * (40-len(t))
+    f.write(t+spa+'Value'+'\n')
+    f.write('-' * 50+'\n')
+    for i in range(len(b)):
+        t=VarNames[properties[i]].strip()
+        if units=='um':
+            t=t.replace('px','um')
+        spa=' ' * (40-len(t))
+        results=t +spa+str(b[i])+'\n'
+        f.write(results)
+    f.write('\n')
+    f.write('_' * 50+'\n')
+    f.write('       ### Functions and distributions ###'+'\n')
+    f.write('_' * 50+'\n')
+    for I in range(num_range_vals):
+        multiplier=1
+        t=VarNames[properties[I+num_single_vals]].strip()
+        if units=='um':
+            t=t.replace('px','um')
+        f.write('\n')
+        f.write('\n')
+        f.write('# '+t+'\n')
+        f.write('-' * 50+'\n')
+        xlabel='Cumulative probability'
+        if I+15 in [15,16,17]:
+            xlabel='Wetting-sat (Sw)'
+        if I+15 in [18]:
+            xlabel='lag (px)'
+            multiplier=50
+        spa=' ' * (40-len(xlabel))
+        f.write(xlabel+spa+'Value'+'\n')
+        f.write('-' * 50+'\n')
+        shift=I*100+15
+        for J in range(100):
+            t=str(np.round((J*.01+.01)*multiplier,2))
+            spa=' ' * (40-len(t))
+            f.write(t+spa+str(np.round(vals[J+shift],7))+'\n')
+    f.close()
+    a=0
+    if verbose:
+        print('\n')
+        with open(FileName,"r") as f:
+            for line in f:
+                print(line)
+                a=a+1
+                if a>23:
+                    print('-' * 50+'\n')
+                    print('To see all the results please refer to this file: \n')
+                    print(FileName+'\n')
+                    break
+
+# REVISED DEEPORE MODELS
+# Reason -> different num of property predictions
+# Revision -> new parameter for property num, used instead of 1515
+def DeePore1(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    # variable filters / 3 convs
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
+    return model
+def DeePore2(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    # variable filters / 4 convs
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    c4 = Conv2D(24, (2, 2), kernel_initializer='he_normal', padding='same') (p3)
+    p4 = MaxPooling2D((2, 2)) (c4)
+    f=tf.keras.layers.Flatten()(p4)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
+    return model
+def DeePore3(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    # fixed filter size/ 3 convs
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(36, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
+    return model
+def DeePore4(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss=WMSE, metrics=['mse'])
+    return model
+def DeePore5(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    c4 = Conv2D(24, (2, 2), kernel_initializer='he_normal', padding='same') (p3)
+    p4 = MaxPooling2D((2, 2)) (c4)
+    f=tf.keras.layers.Flatten()(p4)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss=WMSE, metrics=['mse'])
+    return model
+def DeePore6(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(36, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss=WMSE, metrics=['mse'])
+    return model
+def DeePore7(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['mse'])
+    return model
+def DeePore8(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['mse'])
+    return model
+def DeePore9(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    c1 = Conv2D(6, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    c2 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
+    p2 = MaxPooling2D((2, 2)) (c2)
+    c3 = Conv2D(18, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
+    p3 = MaxPooling2D((2, 2)) (c3)
+    c4 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p3)
+    p4 = MaxPooling2D((2, 2)) (c4)
+    f=tf.keras.layers.Flatten()(p4)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.leaky_relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer='adam', loss=WBCE, metrics=['mse'])
+    return model
+
+def modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType,property_num=1515):
+    if ModelType==1:
+        model=DeePore1(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==2:
+        model=DeePore2(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==3:
+        model=DeePore3(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==4:
+        model=DeePore4(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==5:
+        model=DeePore5(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==6:
+        model=DeePore6(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==7:
+        model=DeePore7(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==8:
+        model=DeePore8(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==9:
+        model=DeePore9(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    return model
 
 # ORIGINAL DEEPORE
 def check_get(url,File_Name):
@@ -640,179 +942,6 @@ def WBCE(y_actual,y_pred): # weighted binary crossentropy loss
     loss=y_actual*(-tf.math.log(y_pred))+(1-y_actual)*(-tf.math.log(1-y_pred))
     loss=tf.multiply(loss,w)
     return loss
-
-# ORIGINAL DEEPORE MODELS
-def DeePore1(INPUT_SHAPE,OUTPUT_SHAPE):
-    # variable filters / 3 convs
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    f=tf.keras.layers.Flatten()(p3)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    optim=tf.keras.optimizers.RMSprop(1e-5)
-    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
-    return model
-def DeePore2(INPUT_SHAPE,OUTPUT_SHAPE):
-    # variable filters / 4 convs
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    c4 = Conv2D(24, (2, 2), kernel_initializer='he_normal', padding='same') (p3)
-    p4 = MaxPooling2D((2, 2)) (c4)
-    f=tf.keras.layers.Flatten()(p4)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    optim=tf.keras.optimizers.RMSprop(1e-5)
-    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
-    return model
-def DeePore3(INPUT_SHAPE,OUTPUT_SHAPE):
-    # fixed filter size/ 3 convs
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(36, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    f=tf.keras.layers.Flatten()(p3)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    optim=tf.keras.optimizers.RMSprop(1e-5)
-    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
-    return model
-def DeePore4(INPUT_SHAPE,OUTPUT_SHAPE):
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    f=tf.keras.layers.Flatten()(p3)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    optim=tf.keras.optimizers.RMSprop(1e-5)
-    model.compile(optimizer=optim, loss=WMSE, metrics=['mse'])
-    return model
-def DeePore5(INPUT_SHAPE,OUTPUT_SHAPE):
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    c4 = Conv2D(24, (2, 2), kernel_initializer='he_normal', padding='same') (p3)
-    p4 = MaxPooling2D((2, 2)) (c4)
-    f=tf.keras.layers.Flatten()(p4)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    optim=tf.keras.optimizers.RMSprop(1e-5)
-    model.compile(optimizer=optim, loss=WMSE, metrics=['mse'])
-    return model
-def DeePore6(INPUT_SHAPE,OUTPUT_SHAPE):
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(36, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    f=tf.keras.layers.Flatten()(p3)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    optim=tf.keras.optimizers.RMSprop(1e-5)
-    model.compile(optimizer=optim, loss=WMSE, metrics=['mse'])
-    return model
-def DeePore7(INPUT_SHAPE,OUTPUT_SHAPE):
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    f=tf.keras.layers.Flatten()(p3)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['mse'])
-    return model
-def DeePore8(INPUT_SHAPE,OUTPUT_SHAPE):
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    f=tf.keras.layers.Flatten()(p3)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['mse'])
-    return model
-def DeePore9(INPUT_SHAPE,OUTPUT_SHAPE):
-    inputs = Input(INPUT_SHAPE[1:])
-    c1 = Conv2D(6, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
-    p1 = MaxPooling2D((2, 2)) (c1)
-    c2 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
-    p2 = MaxPooling2D((2, 2)) (c2)
-    c3 = Conv2D(18, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
-    p3 = MaxPooling2D((2, 2)) (c3)
-    c4 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p3)
-    p4 = MaxPooling2D((2, 2)) (c4)
-    f=tf.keras.layers.Flatten()(p4)
-    d1=tf.keras.layers.Dense(1515, activation=tf.nn.leaky_relu)(f)
-    d2=tf.keras.layers.Dense(1515, activation=tf.nn.sigmoid)(d1)
-    outputs=d2
-    model = Model(inputs=[inputs], outputs=[outputs])
-    model.compile(optimizer='adam', loss=WBCE, metrics=['mse'])
-    return model
-
-def modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType):
-    if ModelType==1:
-        model=DeePore1(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==2:
-        model=DeePore2(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==3:
-        model=DeePore3(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==4:
-        model=DeePore4(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==5:
-        model=DeePore5(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==6:
-        model=DeePore6(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==7:
-        model=DeePore7(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==8:
-        model=DeePore8(INPUT_SHAPE,OUTPUT_SHAPE)
-    if ModelType==9:
-        model=DeePore9(INPUT_SHAPE,OUTPUT_SHAPE)
-    return model
 
 # ORIGINAL DEEPORE
 def gener(batch_size,Data,List,MIN,MAX):
@@ -943,70 +1072,6 @@ def makeblocks(SS,n=None,w=None,ov=0):
         HI.append(hi)
         LO.append(lo)
     return LO,HI
-
-# ORIGINAL DEEPORE
-def prettyresult(vals,FileName,units='um',verbose=1):
-    vals=np.squeeze(vals)
-    with open('VarNames.txt') as f:
-        VarNames = list(f)
-    b=np.round(vals[0:15],7)
-    f = open(FileName, 'w')
-    f.write('DeePore output results including 15 single-value' +'\n'+ 'paramters, 4 functions and 11 distributions'+'\n')
-    f.write('_' * 50+'\n')
-    f.write('        ### Single-value parameters ###'+'\n')
-    f.write('_' * 50+'\n')
-    f.write('\n')
-    t='Properties'
-    spa=' ' * (40-len(t))
-    f.write(t+spa+'Value'+'\n')
-    f.write('-' * 50+'\n')
-    for i in range(len(b)):
-        t=VarNames[i].strip()
-        if units=='um':
-            t=t.replace('px','um')
-        spa=' ' * (40-len(t))
-        results=t +spa+str(b[i])+'\n'
-        f.write(results)
-    f.write('\n')
-    f.write('_' * 50+'\n')
-    f.write('       ### Functions and distributions ###'+'\n')
-    f.write('_' * 50+'\n')
-    for I in range(15):
-        multiplier=1
-        t=VarNames[I+15].strip()
-        if units=='um':
-            t=t.replace('px','um')
-        f.write('\n')
-        f.write('\n')
-        f.write('# '+t+'\n')
-        f.write('-' * 50+'\n')
-        xlabel='Cumulative probability'
-        if I+15 in [15,16,17]:
-            xlabel='Wetting-sat (Sw)'
-        if I+15 in [18]:
-            xlabel='lag (px)'
-            multiplier=50
-        spa=' ' * (40-len(xlabel))
-        f.write(xlabel+spa+'Value'+'\n')
-        f.write('-' * 50+'\n')
-        shift=I*100+15
-        for J in range(100):
-            t=str(np.round((J*.01+.01)*multiplier,2))
-            spa=' ' * (40-len(t))
-            f.write(t+spa+str(np.round(vals[J+shift],7))+'\n')
-    f.close()
-    a=0
-    if verbose:
-        print('\n')
-        with open(FileName,"r") as f:
-            for line in f:
-                print(line)
-                a=a+1
-                if a>23:
-                    print('-' * 50+'\n')
-                    print('To see all the results please refer to this file: \n')
-                    print(FileName+'\n')
-                    break
 
 # ORIGINAL DEEPORE
 def readh5slice(FileName,FieldName,Slices):
