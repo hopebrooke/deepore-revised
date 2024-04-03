@@ -26,9 +26,9 @@ import tensorflow.keras.backend as kb
 # import cv2
 
 # REVISED DEEPORE
-# Reason -> problem with float/int conversion
-# Revision -> added int casting
-def show_feature_maps(A):
+# Reason -> problem with float/int conversion, also save feature maps depending on which slice volume
+# Revision -> added int casting, takes parameter of slice vol n, saves image with +'<n>'.png
+def show_feature_maps(A, n):
     N=int(np.ceil(np.sqrt(A.shape[0])))
     f=plt.figure(figsize=(N*10,N*10))
     for I in range(A.shape[0]):
@@ -37,7 +37,7 @@ def show_feature_maps(A):
         plt.axis('off')
     plt.show()
 
-    f.savefig('images/initial_feature_maps.png')
+    f.savefig('images/initial_feature_maps_'+str(n)+'.png')
 
 # NEW FUNCTION
 # Reason -> directs to correct slive vol func based on how many slices requested
@@ -126,7 +126,7 @@ def showentry_1(A):
     ax3=plt.subplot(1,3,3); plt.axis('off'); ax3.set_title('Z mid-slice');
     plt.imshow(np.squeeze(A[:,:,int(A.shape[2]/2)]), cmap=CM, interpolation='nearest')
     # plt.colorbar(orientation="horizontal")
-    plt.savefig('images/First_entry.png')
+    plt.savefig('images/First_entry_1.png')
 
 # REVISED DEEPORE
 # Reason -> changing slice num means we need to change how the entries are shown
@@ -253,10 +253,12 @@ def loadmodel(n, ModelType=3):
   else:
     print("Error: Not a valid slice number.")
 
-# ORIGINAL DEEPORE
+# REVISED DEEPORE
+# Reason -> need to change names of models saved for different slices
+# Revision -> model + modeltype + '_1'
 def loadmodel_1(ModelType=3): # model type 3 seems to be the better one
-    Path='Model'+str(ModelType)+'.h5';
-    MIN,MAX=np.load('minmax.npy')
+    Path='Model'+str(ModelType)+'_1.h5';
+    MIN,MAX=np.load('minmax_1.npy')
     INPUT_SHAPE=[1,128,128,3];
     OUTPUT_SHAPE=[1,1515,1];
     model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
@@ -267,8 +269,8 @@ def loadmodel_1(ModelType=3): # model type 3 seems to be the better one
 # Reason -> load model needs to be updated for different slice volumes
 # Revision -> adjusted array shape for 6 instead of 3
 def loadmodel_2(ModelType=3):
-    Path='Model'+str(ModelType)+'.h5';
-    MIN,MAX=np.load('minmax.npy')
+    Path='Model'+str(ModelType)+'_2.h5';
+    MIN,MAX=np.load('minmax_2.npy')
     INPUT_SHAPE=[1,128,128,6];
     OUTPUT_SHAPE=[1,1515,1];
     model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
@@ -279,8 +281,8 @@ def loadmodel_2(ModelType=3):
 # Reason -> load model needs to be updated for different slice volumes
 # Revision -> adjusted array shape for 6 instead of 3
 def loadmodel_3(ModelType=3):
-    Path='Model'+str(ModelType)+'.h5';
-    MIN,MAX=np.load('minmax.npy')
+    Path='Model'+str(ModelType)+'_3.h5';
+    MIN,MAX=np.load('minmax_3.npy')
     INPUT_SHAPE=[1,128,128,9];
     OUTPUT_SHAPE=[1,1515,1];
     model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
@@ -353,6 +355,243 @@ def ecl_distance_3(A):
             t=np.float64(t)
             B[I,:,:,J]=np.squeeze(t)
     return B
+
+# REVISED DEEPORE
+# Reason -> seperate minmax files for different slice quantities
+# Revision -> takes slice num as parameter n, loads minmax_<n>.py
+def prep(Data, n):
+    print('Checking the data for outliers. Please wait...')
+    List=[]
+    with h5py.File(Data,'r') as f:
+        length=f['X'].shape[0]
+        MIN=np.ones((f['Y'].shape[1],1))*1e7
+        MAX=-MIN
+        counter=0
+        for I in range(length):
+            t2=f['Y'][counter,...]
+            y=t2.astype('float32')
+            D=int(np.sum(np.isnan(y)))+int(np.sum(np.isinf(y)))+int(y[1]>120)+int(y[4]>1.8)+int(y[0]<1e-4)+int(y[2]<1e-5)+int(y[14]>.7)
+
+            if D>0:
+                pass
+            else:
+                List=np.append(List,counter)
+                y[0:15]=np.log10(y[0:15]) # applying log10 to handle range of order of magnitudes
+                maxid=np.argwhere(y>MAX)
+                minid=np.argwhere(y<MIN)
+                MAX[maxid[:,0]]=y[maxid[:,0]]
+                MIN[minid[:,0]]=y[minid[:,0]]
+            if counter % 100==0:
+                print('checking sample'+str(counter))
+            counter=counter+1
+        Singles=15
+        for I in range(15):
+            MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
+            MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
+    np.save('minmax_'+str(n)+'.npy',[MIN,MAX])
+    return List
+
+# REVISED DEEPORE
+# Reason -> different slice volumes have different minmax and model names
+# Revision -> takes slice vol as parameter n (defaults to 1 if not), and loads/saves appropriate minmax, logs, models
+def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=9, n=1):
+    from tensorflow.keras.callbacks import ModelCheckpoint
+    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    SaveName='Model'+str(ModelType)+'_'+str(n)+'.h5';
+    INPUT_SHAPE,OUTPUT_SHAPE =hdf_shapes(DataName,('X','Y'));
+    OUTPUT_SHAPE=[1,1]
+    # callbacks
+    timestr=nowstr()
+    LogName='log_'+timestr+'_'+'Model'+str(ModelType) + '_' + str(n)
+    filepath=SaveName
+    checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1,save_freq=50, save_best_only=True, mode='min')
+    with open("Logs/"+LogName+".txt", "wt") as f:
+        f.write('# Path to train file: \n')
+        f.write(DataName +'\n')
+        f.write('# Start time: \n')
+        f.write(timestr +'\n')
+        nowstr()
+        st='# Training loss'
+        spa=' ' * (40-len(st))
+        st=st+spa+'Validation loss'
+        f.write(st+'\n')
+
+    class MyCallback(tf.keras.callbacks.Callback):
+        def __init__(self):
+            self.val_loss_=None
+            self.start_time=now()
+        def on_batch_end(self, batch, logs=None):
+            if self.val_loss_==None:
+                self.val_loss_=logs['mse']
+            with open("Logs/"+LogName+".txt", "a") as f:
+                st=str(logs['mse'])
+                spa=' ' * (40-len(st))
+                st=st+spa+str(self.val_loss_)
+                f.write(st+'\n')
+        def on_test_batch_end(self,batch, logs=None):
+            self.val_loss_=logs['mse']
+    callbacks_list = [checkpoint,MyCallback()]
+    callbacks_list = [checkpoint]
+    callbacks_list = []
+    callbacks_list = [MyCallback()]
+    # end of callbacks
+    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
+
+
+    if retrain:
+        if reload:
+            model.load_weights(SaveName)
+
+        model.fit(gener(batch_size,DataName,TrainList,MIN,MAX), epochs=epochs,steps_per_epoch=int(len(TrainList)/batch_size),
+                  validation_data=gener(batch_size,DataName,EvalList,MIN,MAX),validation_steps=int(len(EvalList)/batch_size),callbacks=callbacks_list)
+        model.save_weights(SaveName);
+    else:
+        model.load_weights(SaveName)
+    return model
+
+# REVISED DEEPORE
+# Reason -> changing load/save names depending on model slices
+# Revision -> Takes slice vol as parameter n, changes minmax load name and tested model save name
+def testmodel(model,DataName,TestList,ModelType=3, n=1):
+    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    G=gener(len(TestList),DataName,TestList,MIN,MAX)
+    L=next(G)
+    x=L[0]
+    y=L[1]
+    y2=model.predict(L[0])
+    print('\n# Evaluate on '+ str(TestList.shape[0]) + ' test data')
+    model.evaluate(x,y,batch_size=50)
+    #  Denormalize the predictions
+    MIN=np.reshape(MIN,(1,y.shape[1]))
+    MAX=np.reshape(MAX,(1,y.shape[1]))
+    y=np.multiply(y,(MAX-MIN))+MIN
+    y2=np.multiply(y2,(MAX-MIN))+MIN
+    y[:,0:15]=10**y[:,0:15]
+    y2[:,0:15]=10**y2[:,0:15]
+
+    # save test results as mat file for postprocessing with matlab
+    import scipy.io as sio
+    sio.savemat('Tested_Data_Model'+str(ModelType)+'_'+str(n)+'.mat',{'y':y,'y2':y2})
+    # #  Show prediction of 15 single-value features
+    fig=plt.figure(figsize=(30,40))
+    plt.rcParams.update({'font.size': 30})
+    with open('VarNames.txt') as f:
+        VarNames = list(f)
+    for I in range(15):
+        ax = fig.add_subplot(5,3,I+1)
+        X=y[:,I]
+        Y=y2[:,I]
+        plt.scatter(X,Y)
+        plt.ylabel('Predicted')
+        plt.xlabel('Ground truth')
+        plt.tick_params(direction="in")
+        plt.text(.5,.9,VarNames[I],horizontalalignment='center',transform=ax.transAxes)
+        plt.xlim(np.min(X),np.max(X))
+        plt.ylim(np.min(Y),np.max(Y))
+        if I==0:
+            ax.set_yscale('log')
+            ax.set_xscale('log')
+    plt.savefig('images/Single-value_Features_'+str(n)+'.png')
+
+# REVISED DEEPORE
+# Reason -> slice volume affects how ecl_distance is calulated
+# Revision -> takes slice vol as parameter n and passes parameter to ecl_distance
+def feedsampledata(A=None,FileName=None, n=1):
+    if FileName!=None:
+        extention=os.path.splitext(FileName)[1]
+    else:
+        extention=''
+    if extention=='.mat':
+        # A=mat2np(FileName)
+        import scipy.io as sio
+        A=sio.loadmat(FileName)['A']
+    if extention=='.npy':
+        A=np.load(FileName)
+    if extention=='.npz':
+        A=np.load(FileName)['A']
+    if extention=='.npy' or extention=='.mat' or extention=='.npz' or FileName==None:
+        if len(A.shape)==3:
+
+            A=np.int8(A!=0)
+            LO,HI=makeblocks(A.shape,w=256,ov=.1)
+            N=len(HI[0])*len(HI[1])*len(HI[2]) # number of subsamples
+            AA=np.zeros((N,256,256,3))
+            a=0
+            for I in range(len(LO[0])):
+                for J in range(len(LO[1])):
+                    for K in range(len(LO[2])):
+                        temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J],LO[2][K]:HI[2][K]]
+                        temp1=np.squeeze(temp[int(temp.shape[0]/2),:,:]);
+                        temp2=np.squeeze(temp[:,int(temp.shape[1]/2),:]);
+                        temp3=np.squeeze(temp[:,:,int(temp.shape[2]/2)]);
+                        AA[a,...]=np.stack((temp1,temp2,temp3),axis=2)
+                        a=a+1
+    if extention=='.png' or extention=='.jpg' or extention=='.bmp':
+        A=plt.imread(FileName)
+        if len(A.shape)!=2:
+            print('Converting image to grayscale...')
+            A=np.mean(A,axis=2)
+            print('Converting image to binary...')
+            import cv2
+            ret,A = cv2.threshold(A,127,255,cv2.THRESH_BINARY)
+        A=np.int8(A!=0)
+        LO,HI=makeblocks(A.shape,w=256,ov=.1)
+        N=len(HI[0])*len(HI[1]) # number of subsamples
+        AA=np.zeros((N,256,256,3))
+        a=0
+        for I in range(len(LO[0])):
+            for J in range(len(LO[1])):
+                temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J]]
+                AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
+                a=a+1
+    if FileName==None:
+        if len(A.shape)==2:
+            A=np.int8(A!=0)
+            LO,HI=makeblocks(A.shape,w=256,ov=.1)
+            N=len(HI[0])*len(HI[1]) # number of subsamples
+            AA=np.zeros((N,256,256,3))
+            a=0
+            for I in range(len(LO[0])):
+                for J in range(len(LO[1])):
+                    temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J]]
+                    AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
+                    a=a+1
+
+    B=ecl_distance(AA, n)
+    return B
+
+# REVISED DEEPORE
+# Reason -> Minmax depends on slice volume
+# Revision -> takes slice vol as parameter n and adjust file loading accordingly
+def predict(model,A,res=5, n=1):
+    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    y=model.predict(A)
+    MIN=np.reshape(MIN,(1,y.shape[1]))
+    MAX=np.reshape(MAX,(1,y.shape[1]))
+    y=np.multiply(y,(MAX-MIN))+MIN
+    y[:,0:15]=10**y[:,0:15]
+    # y[:,1]=10**y[:,1]
+    y=np.mean(y,axis=0)
+    val=y[0:15]
+    val[0]=val[0]*res*res
+    val[3]=val[3]/res/res/res
+    val[10]=val[10]/res
+    val[6]=val[6]*res
+    val[7]=val[7]*res
+    val[8]=val[8]*res
+    val[13]=val[13]*res
+    d=100
+    output=val
+    for I in range(15):
+        func=y[I*d+15:(I+1)*d+15]
+        if I in [19,20,21,22,23,24,29]:
+            func=func*res
+        if I in [18]:
+            func=func/res
+        if I in [25]:
+            func=func*res*res
+        output=np.append(output,func)
+    return output
 
 # ORIGINAL DEEPORE
 def check_get(url,File_Name):
@@ -576,39 +815,6 @@ def modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType):
     return model
 
 # ORIGINAL DEEPORE
-def prep(Data):
-    print('Cheching the data for outliers. Please wait...')
-    List=[]
-    with h5py.File(Data,'r') as f:
-        length=f['X'].shape[0]
-        MIN=np.ones((f['Y'].shape[1],1))*1e7
-        MAX=-MIN
-        counter=0
-        for I in range(length):
-            t2=f['Y'][counter,...]
-            y=t2.astype('float32')
-            D=int(np.sum(np.isnan(y)))+int(np.sum(np.isinf(y)))+int(y[1]>120)+int(y[4]>1.8)+int(y[0]<1e-4)+int(y[2]<1e-5)+int(y[14]>.7)
-
-            if D>0:
-                pass
-            else:
-                List=np.append(List,counter)
-                y[0:15]=np.log10(y[0:15]) # applying log10 to handle range of order of magnitudes
-                maxid=np.argwhere(y>MAX)
-                minid=np.argwhere(y<MIN)
-                MAX[maxid[:,0]]=y[maxid[:,0]]
-                MIN[minid[:,0]]=y[minid[:,0]]
-            if counter % 100==0:
-                print('checking sample'+str(counter))
-            counter=counter+1
-        Singles=15
-        for I in range(15):
-            MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
-            MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
-    np.save('minmax.npy',[MIN,MAX])
-    return List
-
-# ORIGINAL DEEPORE
 def gener(batch_size,Data,List,MIN,MAX):
     with h5py.File(Data,'r') as f:
         length=len(List)
@@ -657,63 +863,6 @@ def nowstr():
     return now.strftime("%d-%b-%Y %H.%M.%S")
 
 # ORIGINAL DEEPORE
-
-def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=9):
-    from tensorflow.keras.callbacks import ModelCheckpoint
-    MIN,MAX=np.load('minmax.npy')
-    SaveName='Model'+str(ModelType)+'.h5';
-    INPUT_SHAPE,OUTPUT_SHAPE =hdf_shapes(DataName,('X','Y'));
-    OUTPUT_SHAPE=[1,1]
-    # callbacks
-    timestr=nowstr()
-    LogName='log_'+timestr+'_'+'Model'+str(ModelType)
-    filepath=SaveName
-    checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1,save_freq=50, save_best_only=True, mode='min')
-    with open("Logs/"+LogName+".txt", "wt") as f:
-        f.write('# Path to train file: \n')
-        f.write(DataName +'\n')
-        f.write('# Start time: \n')
-        f.write(timestr +'\n')
-        nowstr()
-        st='# Training loss'
-        spa=' ' * (40-len(st))
-        st=st+spa+'Validation loss'
-        f.write(st+'\n')
-
-    class MyCallback(tf.keras.callbacks.Callback):
-        def __init__(self):
-            self.val_loss_=None
-            self.start_time=now()
-        def on_batch_end(self, batch, logs=None):
-            if self.val_loss_==None:
-                self.val_loss_=logs['mse']
-            with open("Logs/"+LogName+".txt", "a") as f:
-                st=str(logs['mse'])
-                spa=' ' * (40-len(st))
-                st=st+spa+str(self.val_loss_)
-                f.write(st+'\n')
-        def on_test_batch_end(self,batch, logs=None):
-            self.val_loss_=logs['mse']
-    callbacks_list = [checkpoint,MyCallback()]
-    callbacks_list = [checkpoint]
-    callbacks_list = []
-    callbacks_list = [MyCallback()]
-    # end of callbacks
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType)
-
-
-    if retrain:
-        if reload:
-            model.load_weights(SaveName)
-
-        model.fit(gener(batch_size,DataName,TrainList,MIN,MAX), epochs=epochs,steps_per_epoch=int(len(TrainList)/batch_size),
-                  validation_data=gener(batch_size,DataName,EvalList,MIN,MAX),validation_steps=int(len(EvalList)/batch_size),callbacks=callbacks_list)
-        model.save_weights(SaveName);
-    else:
-        model.load_weights(SaveName)
-    return model
-
-# ORIGINAL DEEPORE
 def splitdata(List):
     N=np.int32([0,len(List)*.8,len(List)*.9,len(List)])
     TrainList=List[N[0]:N[1]]
@@ -722,118 +871,9 @@ def splitdata(List):
     return TrainList, EvalList, TestList
 
 # ORIGINAL DEEPORE
-def testmodel(model,DataName,TestList,ModelType=3):
-    MIN,MAX=np.load('minmax.npy')
-    G=gener(len(TestList),DataName,TestList,MIN,MAX)
-    L=next(G)
-    x=L[0]
-    y=L[1]
-    y2=model.predict(L[0])
-    print('\n# Evaluate on '+ str(TestList.shape[0]) + ' test data')
-    model.evaluate(x,y,batch_size=50)
-    #  Denormalize the predictions
-    MIN=np.reshape(MIN,(1,y.shape[1]))
-    MAX=np.reshape(MAX,(1,y.shape[1]))
-    y=np.multiply(y,(MAX-MIN))+MIN
-    y2=np.multiply(y2,(MAX-MIN))+MIN
-    y[:,0:15]=10**y[:,0:15]
-    y2[:,0:15]=10**y2[:,0:15]
-
-    # save test results as mat file for postprocessing with matlab
-    import scipy.io as sio
-    sio.savemat('Tested_Data_Model'+str(ModelType)+'.mat',{'y':y,'y2':y2})
-    # #  Show prediction of 15 single-value features
-    fig=plt.figure(figsize=(30,40))
-    plt.rcParams.update({'font.size': 30})
-    with open('VarNames.txt') as f:
-        VarNames = list(f)
-    for I in range(15):
-        ax = fig.add_subplot(5,3,I+1)
-        X=y[:,I]
-        Y=y2[:,I]
-        plt.scatter(X,Y)
-        plt.ylabel('Predicted')
-        plt.xlabel('Ground truth')
-        plt.tick_params(direction="in")
-        plt.text(.5,.9,VarNames[I],horizontalalignment='center',transform=ax.transAxes)
-        plt.xlim(np.min(X),np.max(X))
-        plt.ylim(np.min(Y),np.max(Y))
-        if I==0:
-            ax.set_yscale('log')
-            ax.set_xscale('log')
-    plt.savefig('images/Single-value_Features.png')
-
-# ORIGINAL DEEPORE
 def mat2np(Name): # load the MATLAB array as numpy array
     B=sio.loadmat(Name)
     return B['A']
-
-# REVISED DEEPORE
-# Reason -> edited ecl_dist so it needs paramater for slices
-# Revision -> passes parameter to ecl_distance
-def feedsampledata(A=None,FileName=None):
-    if FileName!=None:
-        extention=os.path.splitext(FileName)[1]
-    else:
-        extention=''
-    if extention=='.mat':
-        # A=mat2np(FileName)
-        import scipy.io as sio
-        A=sio.loadmat(FileName)['A']
-    if extention=='.npy':
-        A=np.load(FileName)
-    if extention=='.npz':
-        A=np.load(FileName)['A']
-    if extention=='.npy' or extention=='.mat' or extention=='.npz' or FileName==None:
-        if len(A.shape)==3:
-
-            A=np.int8(A!=0)
-            LO,HI=makeblocks(A.shape,w=256,ov=.1)
-            N=len(HI[0])*len(HI[1])*len(HI[2]) # number of subsamples
-            AA=np.zeros((N,256,256,3))
-            a=0
-            for I in range(len(LO[0])):
-                for J in range(len(LO[1])):
-                    for K in range(len(LO[2])):
-                        temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J],LO[2][K]:HI[2][K]]
-                        temp1=np.squeeze(temp[int(temp.shape[0]/2),:,:]);
-                        temp2=np.squeeze(temp[:,int(temp.shape[1]/2),:]);
-                        temp3=np.squeeze(temp[:,:,int(temp.shape[2]/2)]);
-                        AA[a,...]=np.stack((temp1,temp2,temp3),axis=2)
-                        a=a+1
-    if extention=='.png' or extention=='.jpg' or extention=='.bmp':
-        A=plt.imread(FileName)
-        if len(A.shape)!=2:
-            print('Converting image to grayscale...')
-            A=np.mean(A,axis=2)
-            print('Converting image to binary...')
-            import cv2
-            ret,A = cv2.threshold(A,127,255,cv2.THRESH_BINARY)
-        A=np.int8(A!=0)
-        LO,HI=makeblocks(A.shape,w=256,ov=.1)
-        N=len(HI[0])*len(HI[1]) # number of subsamples
-        AA=np.zeros((N,256,256,3))
-        a=0
-        for I in range(len(LO[0])):
-            for J in range(len(LO[1])):
-                temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J]]
-                AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
-                a=a+1
-    if FileName==None:
-        if len(A.shape)==2:
-            A=np.int8(A!=0)
-            LO,HI=makeblocks(A.shape,w=256,ov=.1)
-            N=len(HI[0])*len(HI[1]) # number of subsamples
-            AA=np.zeros((N,256,256,3))
-            a=0
-            for I in range(len(LO[0])):
-                for J in range(len(LO[1])):
-                    temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J]]
-                    AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
-                    a=a+1
-
-    B=ecl_distance(AA, 1)
-    return B
 
 # ORIGINAL DEEPORE
 def writeh5slice(A,FileName,FieldName,Shape):
@@ -872,37 +912,6 @@ def normalize(A):
 def normal(A):
     A_min = np.min(A)
     return (A-A_min)/(np.max(A)-A_min)
-
-# ORIGINAL DEEPORE
-def predict(model,A,res=5):
-    MIN,MAX=np.load('minmax.npy')
-    y=model.predict(A)
-    MIN=np.reshape(MIN,(1,y.shape[1]))
-    MAX=np.reshape(MAX,(1,y.shape[1]))
-    y=np.multiply(y,(MAX-MIN))+MIN
-    y[:,0:15]=10**y[:,0:15]
-    # y[:,1]=10**y[:,1]
-    y=np.mean(y,axis=0)
-    val=y[0:15]
-    val[0]=val[0]*res*res
-    val[3]=val[3]/res/res/res
-    val[10]=val[10]/res
-    val[6]=val[6]*res
-    val[7]=val[7]*res
-    val[8]=val[8]*res
-    val[13]=val[13]*res
-    d=100
-    output=val
-    for I in range(15):
-        func=y[I*d+15:(I+1)*d+15]
-        if I in [19,20,21,22,23,24,29]:
-            func=func*res
-        if I in [18]:
-            func=func/res
-        if I in [25]:
-            func=func*res*res
-        output=np.append(output,func)
-    return output
 
 # ORIGINAL DEEPORE
 def makeblocks(SS,n=None,w=None,ov=0):
