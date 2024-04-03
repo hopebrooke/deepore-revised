@@ -28,7 +28,7 @@ import tensorflow.keras.backend as kb
 # REVISED DEEPORE
 # Reason -> problem with float/int conversion, also save feature maps depending on which slice volume
 # Revision -> added int casting, takes parameter of slice vol n, saves image with +'<n>'.png
-def show_feature_maps(A, n):
+def show_feature_maps(A, n=1):
     N=int(np.ceil(np.sqrt(A.shape[0])))
     f=plt.figure(figsize=(N*10,N*10))
     for I in range(A.shape[0]):
@@ -43,11 +43,11 @@ def show_feature_maps(A, n):
 # Reason -> directs to correct slive vol func based on how many slices requested
 def slicevol(A, n):
   if n == 1:
-    slicevol_1(A)
+    return slicevol_1(A)
   elif n == 2:
-    slicevol_2(A)
+    return slicevol_2(A)
   elif n == 3:
-    slicevol_3(A)
+    return slicevol_3(A)
   else:
     print("Error: Not a valid slice number.")
 
@@ -245,11 +245,11 @@ def create_compact_dataset_3(Path_complete,Path_compact):
 # Reason -> directs to correct load model func based on how many slices requested
 def loadmodel(ModelType=3, properties=1515, n=1):
   if n == 1:
-    loadmodel_1(ModelType, properties)
+    return loadmodel_1(ModelType, properties)
   elif n == 2:
-    loadmodel_2(ModelType, properties)
+    return loadmodel_2(ModelType, properties)
   elif n == 3:
-    loadmodel_3(ModelType, properties)
+    return loadmodel_3(ModelType, properties)
   else:
     print("Error: Not a valid slice number.")
 
@@ -293,11 +293,11 @@ def loadmodel_3(ModelType=3, properties=1515):
 # Reason -> directs to correct ecl dist func based on how many slices requested
 def ecl_distance(A, n):
   if n == 1:
-    ecl_distance_1(A)
+    return ecl_distance_1(A)
   elif n == 2:
-    ecl_distance_2(A)
+    return ecl_distance_2(A)
   elif n == 3:
-    ecl_distance_3(A)
+    return ecl_distance_3(A)
   else:
     print("Error: Not a valid slice number.")
 
@@ -358,69 +358,79 @@ def ecl_distance_3(A):
 
 # REVISED DEEPORE
 # Reason -> seperate minmax files for different slice quantities, need to only record the properties wanted
-# Revision -> takes slice num as parameter n, loads minmax_<n>.py, takes properties list as parameter, retrived only properties specified, calculates min / max appropriately
+# Revision -> takes slice num as parameter n, loads minmax_<n>.py, takes properties list as parameter,
+#             retrive only properties specified, calculates min / max appropriately
 def prep(Data, n=1, properties=None):
 
-  num_single_vals = 0
-  num_range_vals = 0
-  if properties is None:
-    properties = list(range(1515))
-    num_single_vals = 15
-    num_range_vals = 15
-  else:
-    # map the properties from 1-30 to 1-1515
-    mapped_properties = []
-    for prop in properties:
-      # if under 15 just add to new array
-      if 0 <= prop < 15:
-        mapped_properties.append(prop)
-        num_single_vals += 1
-      # if over 15, add mapped 100 values
-      elif prop >= 15:
-        val = ((prop-15)*100)+15
-        num_range_vals += 1
-        for i in range (0, 100):
-          mapped_properties.append(val+i)
-    properties=mapped_properties
+    num_single_vals = 0
+    num_range_vals = 0
+    if properties is None:
+      properties = list(range(1515))
+      num_single_vals = 15
+      num_range_vals = 15
+    else:
+      # map the properties from 1-30 to 1-1515
+      mapped_properties = []
+      for prop in properties:
+        # if under 15 just add to new array
+        if 0 <= prop < 15:
+          mapped_properties.append(prop)
+          num_single_vals += 1
+        # if over 15, add mapped 100 values
+        elif prop >= 15:
+          val = ((prop-15)*100)+15
+          num_range_vals += 1
+          for i in range (0, 100):
+            mapped_properties.append(val+i)
+      properties=mapped_properties
 
-  print('Checking the data for outliers. Please wait...')
-  List=[]
-  with h5py.File(Data,'r') as f:
-      length=f['X'].shape[0]
-      MIN=np.ones((f['Y'].shape[1],1))*1e7
-      MAX=-MIN
-      counter=0
-      for I in range(length):
-          t2=f['Y'][counter,properties]
-          y=t2.astype('float32')
-          D=int(np.sum(np.isnan(y)))+int(np.sum(np.isinf(y)))+int(y[1]>120)+int(y[4]>1.8)+int(y[0]<1e-4)+int(y[2]<1e-5)+int(y[14]>.7)
+    print('Checking the data for outliers. Please wait...')
+    List=[]
+    with h5py.File(Data,'r') as f:
+        length=f['X'].shape[0]
+        MIN=np.ones((f['Y'].shape[1],1))*1e7
+        MAX=-MIN
+        counter=0
+        for I in range(length):
+            t2=f['Y'][counter, properties]
+            y=t2.astype('float32')
+            D=int(np.sum(np.isnan(y)))+int(np.sum(np.isinf(y)))
+            # check if specific properties are chosen - and whether they are valid
+            if 1 in properties:
+              D += int(y[properties.index(1)] > 120)
+            if 4 in properties:
+              D += int(y[properties.index(4)]> 1.8)
+            if 0 in properties:
+              D += int(y[properties.index(0)]< 1e-4)
+            if 2 in properties:
+              D += int(y[properties.index(1)]< 1e-5)
+            if 14 in properties:
+              D += int(y[properties.index(14)]> 0.7)
 
-          if D>0:
-              pass
-          else:
-              List=np.append(List,counter)
-              y[0:num_single_vals]=np.log10(y[0:num_single_vals]) # applying log10 to handle range of order of magnitudes
-              maxid=np.argwhere(y>MAX)
-              minid=np.argwhere(y<MIN)
-              MAX[maxid[:,0]]=y[maxid[:,0]]
-              MIN[minid[:,0]]=y[minid[:,0]]
-          if counter % 100==0:
-              print('checking sample: '+str(counter))
-          counter=counter+1
-      print("Singles: "+str(num_single_vals))
-      print("Num_range: "+str(int(num_range_vals(100))))
-      Singles=num_single_vals
-      for I in range(num_range_vals):
-          print("MAx checkuigbn")
-          MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
-          MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
-  np.save('minmax_'+str(n)+'.npy',[MIN,MAX])
-  return List
+            if D>0:
+                pass
+            else:
+                List=np.append(List,counter)
+                y[0:num_single_vals]=np.log10(y[0:num_single_vals]) # applying log10 to handle range of order of magnitudes
+                maxid=np.argwhere(y>MAX)
+                minid=np.argwhere(y<MIN)
+                MAX[maxid[:,0]]=y[maxid[:,0]]
+                MIN[minid[:,0]]=y[minid[:,0]]
+            if counter % 100==0:
+                print('checking sample: '+str(counter))
+            counter=counter+1
+
+        Singles=num_single_vals
+        for I in range(num_range_vals):
+            MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
+            MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
+    np.save('minmax_'+str(n)+'.npy',[MIN,MAX])
+    return List
 
 # REVISED DEEPORE
 # Reason -> different slice volumes have different minmax and model names, takes num of properties to predict
 # Revision -> takes slice vol as parameter n (defaults to 1 if not), and loads/saves appropriate minmax, logs, models, new parameter property num
-def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=9, n=1, property_num=1515):
+def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=3, n=1, property_num=1515):
     from tensorflow.keras.callbacks import ModelCheckpoint
     MIN,MAX=np.load('minmax_'+str(n)+'.npy')
     SaveName='Model'+str(ModelType)+'_'+str(n)+'.h5';
@@ -498,8 +508,8 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
     MAX=np.reshape(MAX,(1,y.shape[1]))
     y=np.multiply(y,(MAX-MIN))+MIN
     y2=np.multiply(y2,(MAX-MIN))+MIN
-    y[:,0:single_val_properties]=10**y[:,0:single_val_properties]
-    y2[:,0:single_val_properties]=10**y2[:,0:single_val_properties]
+    y[:,0:num_single_vals]=10**y[:,0:num_single_vals]
+    y2[:,0:num_single_vals]=10**y2[:,0:num_single_vals]
 
     # save test results as mat file for postprocessing with matlab
     import scipy.io as sio
@@ -509,7 +519,7 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
     plt.rcParams.update({'font.size': 30})
     with open('VarNames.txt') as f:
         VarNames = list(f)
-    for I in range(single_val_properties):
+    for I in range(num_single_vals):
         ax = fig.add_subplot(5,3,I+1)
         X=y[:,I]
         Y=y2[:,I]
@@ -611,40 +621,38 @@ def predict(model,A,res=5, n=1, properties=None):
     y=np.multiply(y,(MAX-MIN))+MIN
     y=np.mean(y,axis=0)
 
-    values = []
+    values = y[0:num_single_vals]
 
     # single values
     for i in range (0, num_single_vals):
       prop = properties[i]
-      value = y[i]
       # normalise single values
       if prop < 15:
-        value=10**y[i]
+        values[i]=10**y[i]
         # loop to check which prooperties are being predcted
         if prop == 0:
-          value *= res * res
+          values[i] = values[i] * res * res
         elif prop == 3:
-          value /= res / res / res
+          values[i] = values[i] / res / res / res
         elif prop == 10:
-          value /= res
+          values[i] = values[i] / res
         elif prop in [6,7,8,13]:
-          value *= res
-      values.append(value)
-
+          values[i] = values[i] * res
+    output = values
     d=100
     # loop through each range
     for i in range (0, num_range_vals):
       # get that range based on how many single and range values calculated:
       func=y[(i*d)+num_single_vals:(i+1)*d + num_single_vals]
       if properties[i+num_single_vals] in [19,20,21,23,24,29]:
-        func *= res
+        func = func * res
       elif properties[i+num_single_vals] in [18]:
-        func /= res
+        func = func / res
       elif properties[i+num_single_vals] in [25]:
-        func *= res * res
-      values.append(func)
+        func = func * res * res
+      output = np.append(output, func)
 
-    return values
+    return output
 
 # REVISED DEEPORE
 # Reason -> need to change which prediction values are displayed based on what properties have been predicted
