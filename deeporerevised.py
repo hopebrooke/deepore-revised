@@ -167,8 +167,8 @@ def loadmodel(ModelType=3, properties=None, n=1): # model type 3 seems to be the
           property_num += 1
         else:
           property_num += 100
-    Path='Model'+str(ModelType)+'_'+str(n)+'.h5';
-    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    Path='Model'+str(ModelType)+'_S'+str(n)+'_P'+str(property_num)+'.h5';
+    MIN,MAX=np.load('minmax_s'+str(n)+'_p'+str(property_num)+'.npy')
     slices = 3*n
     INPUT_SHAPE=[1,128,128,slices];
     OUTPUT_SHAPE=[1,property_num,1];
@@ -263,7 +263,7 @@ def prep(Data, n=1, properties=None):
         for I in range(num_range_vals):
             MAX[Singles+100*I:Singles+100*(I+1)]=np.max(MAX[Singles+100*I:Singles+100*(I+1)])
             MIN[Singles+100*I:Singles+100*(I+1)]=np.min(MIN[Singles+100*I:Singles+100*(I+1)])
-    np.save('minmax_'+str(n)+'.npy',[MIN,MAX])
+    np.save('minmax_s'+str(n)+'_p'+str(len(properties))+'.npy',[MIN,MAX])
     return List
 
 # REVISED DEEPORE
@@ -289,13 +289,13 @@ def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_s
       properties=mapped_properties
 
     from tensorflow.keras.callbacks import ModelCheckpoint
-    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
-    SaveName='Model'+str(ModelType)+'_'+str(n)+'.h5';
+    MIN,MAX=np.load('minmax_s'+str(n)+'_p'+str(len(properties))+'.npy')
+    SaveName='Model'+str(ModelType)+'_S'+str(n)+'_P'+str(len(properties))+'.h5';
     INPUT_SHAPE,OUTPUT_SHAPE =hdf_shapes(DataName,('X','Y'));
     OUTPUT_SHAPE=[1,1]
     # callbacks
     timestr=nowstr()
-    LogName='log_'+timestr+'_'+'Model'+str(ModelType) + '_' + str(n)
+    LogName='log_'+timestr+'_'+'Model'+str(ModelType) + '_S' + str(n) + '_P' + str(len(properties))
     filepath=SaveName
     checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=1,save_freq=50, save_best_only=True, mode='min')
     with open("Logs/"+LogName+".txt", "wt") as f:
@@ -370,7 +370,7 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
             mapped_properties.append(val+i)
       properties=mapped_properties
 
-    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    MIN,MAX=np.load('minmax_s'+str(n)+'_p'+str(len(properties))+'.npy')
     G=gener(len(TestList),DataName,TestList,MIN,MAX,condensed_properties)
     L=next(G)
     x=L[0]
@@ -388,7 +388,7 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
 
     # save test results as mat file for postprocessing with matlab
     import scipy.io as sio
-    sio.savemat('Tested_Data_Model'+str(ModelType)+'_'+str(n)+'.mat',{'y':y,'y2':y2})
+    sio.savemat('Tested_Data_Model'+str(ModelType)+'_S'+str(n)+'_P'+str(len(properties))+'.mat',{'y':y,'y2':y2})
     # #  Show prediction of single-value features
     fig=plt.figure(figsize=(30,40))
     plt.rcParams.update({'font.size': 30})
@@ -513,7 +513,7 @@ def predict(model,A,res=5, n=1, properties=None):
     num_single_vals = sum(1 for prop in properties if prop < 15)
     num_range_vals = sum(1 for prop in properties if prop >= 15)
 
-    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    MIN,MAX=np.load('minmax_s'+str(n)+'_p'+str(num_single_vals+100*num_range_vals)+'.npy')
     y=model.predict(A)
     MIN=np.reshape(MIN,(1,y.shape[1]))
     MAX=np.reshape(MAX,(1,y.shape[1]))
