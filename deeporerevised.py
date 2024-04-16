@@ -26,9 +26,12 @@ import tensorflow.keras.backend as kb
 # import cv2
 
 # REVISED DEEPORE
-# Reason -> problem with float/int conversion, also save feature maps depending on which slice volume
-# Revision -> added int casting, takes parameter of slice vol n, saves image with +'<n>'.png
+# Reason -> problem with float/int conversion, 6 channels cannot be visualised as an RGB image
+# Revision -> added int casting
 def show_feature_maps(A, n=1):
+    if n != 1:
+      print("Cannot visualise feature maps with 6 channels as an RGB image.")
+      return
     N=int(np.ceil(np.sqrt(A.shape[0])))
     f=plt.figure(figsize=(N*10,N*10))
     for I in range(A.shape[0]):
@@ -37,7 +40,7 @@ def show_feature_maps(A, n=1):
         plt.axis('off')
     plt.show()
 
-    f.savefig('images/initial_feature_maps_'+str(n)+'.png')
+    f.savefig('images/initial_feature_maps.png')
 
 # NEW FUNCTION
 # Reason -> directs to correct slive vol func based on how many slices requested
@@ -46,8 +49,6 @@ def slicevol(A, n):
     return slicevol_1(A)
   elif n == 2:
     return slicevol_2(A)
-  elif n == 3:
-    return slicevol_3(A)
   else:
     print("Error: Not a valid slice number.")
 
@@ -77,26 +78,6 @@ def slicevol_2(A):
     B[0,:,:,5]=A[:,:,int( 2 * A.shape[2]/3)]
     return B
 
-# REVISED DEEPORE
-# Reason -> editing original slicevol to take 3 slices in each direction instead of 1
-# Revision -> 3 slices taken from each direction at 1/4, 2/4 and 3/4, rather than at 1/2
-def slicevol_3(A):
-    A=np.squeeze(A)
-    B=np.zeros((1,A.shape[0],A.shape[1],9))
-    # slices from front
-    B[0,:,:,0]=A[int(A.shape[0]/4),:,:]
-    B[0,:,:,1]=A[int(2 * A.shape[0]/4),:,:]
-    B[0,:,:,2]=A[int(3 * A.shape[0]/4),:,:]
-    # slices from left
-    B[0,:,:,3]=A[:,int(A.shape[1]/4),:]
-    B[0,:,:,4]=A[:,int(2 * A.shape[1]/4),:]
-    B[0,:,:,5]=A[:,int(3 * A.shape[1]/4),:]
-    # slices from top
-    B[0,:,:,6]=A[:,:,int(A.shape[2]/4)]
-    B[0,:,:,7]=A[:,:,int( 2 * A.shape[2]/4)]
-    B[0,:,:,8]=A[:,:,int( 3 * A.shape[2]/4)]
-    return B
-
 # NEW FUNCTION
 # Reason -> directs to correct show entry func based on how many slices requested
 def showentry(A, n):
@@ -104,8 +85,6 @@ def showentry(A, n):
     showentry_1(A)
   elif n == 2:
     showentry_2(A)
-  elif n == 3:
-    showentry_3(A)
   else:
     print("Error: Not a valid slice number.")
 
@@ -157,191 +136,51 @@ def showentry_2(A):
     plt.savefig('images/First_entry_2.png')
 
 # REVISED DEEPORE
-# Reason -> changing slice num means we need to change how the entries are shown
-# Revision -> shows 3 slices in each direction, at 1/4, 2/4 and 3/4 of the shape
-def showentry_3(A):
-    """shows 9 slices of a volume data """
-    A=np.squeeze(A)
-    plt.figure(num=None, figsize=(20, 20), dpi=80, facecolor='w', edgecolor='k')
-    CM=plt.cm.viridis
-    # X SLICES
-    ax1=plt.subplot(3,3,1); plt.axis('off'); ax1.set_title('X mid-slice 1')
-    plt.imshow(np.squeeze(A[int(A.shape[0]/4), :,:]), cmap=CM, interpolation='nearest')
-    # plt.colorbar(orientation="horizontal")
-    ax2=plt.subplot(3,3,4); plt.axis('off'); ax2.set_title('X mid-slice 2')
-    plt.imshow(np.squeeze(A[int(2 * A.shape[0]/4), :,:]), cmap=CM, interpolation='nearest')
-    ax3=plt.subplot(3,3,7); plt.axis('off'); ax3.set_title('X mid-slice 3')
-    plt.imshow(np.squeeze(A[int(3 * A.shape[0]/4), :,:]), cmap=CM, interpolation='nearest')
-    # Y SLICES
-    ax4=plt.subplot(3,3,2); plt.axis('off'); ax4.set_title('Y mid-slice 1')
-    plt.imshow(np.squeeze(A[:,int(A.shape[1]/4), :]), cmap=CM, interpolation='nearest')
-    # plt.colorbar(orientation="horizontal")
-    ax5=plt.subplot(3,3,5); plt.axis('off'); ax5.set_title('Y mid-slice 2')
-    plt.imshow(np.squeeze(A[:,int(2 * A.shape[1]/4), :]), cmap=CM, interpolation='nearest')
-    ax6=plt.subplot(3,3,8); plt.axis('off'); ax6.set_title('Y mid-slice 3')
-    plt.imshow(np.squeeze(A[:,int(3 * A.shape[1]/4), :]), cmap=CM, interpolation='nearest')
-    # Z SLICES
-    ax7=plt.subplot(3,3,3); plt.axis('off'); ax7.set_title('Z mid-slice 1');
-    plt.imshow(np.squeeze(A[:,:,int(A.shape[2]/4)]), cmap=CM, interpolation='nearest')
-    # plt.colorbar(orientation="horizontal")
-    ax8=plt.subplot(3,3,6); plt.axis('off'); ax8.set_title('Z mid-slice 2');
-    plt.imshow(np.squeeze(A[:,:,int(2 * A.shape[2]/4)]), cmap=CM, interpolation='nearest')
-    ax9=plt.subplot(3,3,9); plt.axis('off'); ax9.set_title('Z mid-slice 3');
-    plt.imshow(np.squeeze(A[:,:,int(3 * A.shape[2]/4)]), cmap=CM, interpolation='nearest')
-    plt.savefig('images/First_entry_3.png')
-
-# NEW FUNCTION
-# Reason -> directs to correct create dataset func based on how many slices requested
-def create_compact_dataset(Path_complete,Path_compact, n):
-  if n == 1:
-    create_compact_dataset_1(Path_complete,Path_compact)
-  elif n == 2:
-    create_compact_dataset_2(Path_complete,Path_compact)
-  elif n == 3:
-    create_compact_dataset_3(Path_complete,Path_compact)
-  else:
-    print("Error: Not a valid slice number.")
-
-# REVISED DEEPORE
 # Reason -> needs to also know how many slices being requested in each dir (1, 2 or 3)
-# Revision -> passes 1 as param to slicevol and ecl_distance
-def create_compact_dataset_1(Path_complete,Path_compact):
+# Revision -> directs to correct slice vol/ecl_distance function, changes shape of h5 slice written
+def create_compact_dataset(Path_complete,Path_compact, n=1):
     S=hdf_shapes(Path_complete,['X'])
     for I in range(S[0][0]):
         X=readh5slice(Path_complete,'X',[I])
         Y=readh5slice(Path_complete,'Y',[I])
-        X=slicevol_1(X)
-        X=ecl_distance_1(X)
-        writeh5slice(X,Path_compact,'X',Shape=[128,128,3])
+        if n == 1:
+          X=slicevol_1(X)
+        elif n == 2:
+          X=slicevol_2(X)
+        else:
+          print("Functionality for that quantity of slices has not been implemented.")
+        X=ecl_distance(X, n)
+        writeh5slice(X,Path_compact,'X',Shape=[128,128,3*n])
         writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
-
-# REVISED DEEPORE
-# Reason -> if we change slice volume, we change how the compact dataset is created
-# Revision -> changing parameters for writeh5slice() call from 3 to 6, passes 2 as param to slicevol and ecl_distance
-def create_compact_dataset_2(Path_complete,Path_compact):
-    S=hdf_shapes(Path_complete,['X'])
-    for I in range(S[0][0]):
-        X=readh5slice(Path_complete,'X',[I])
-        Y=readh5slice(Path_complete,'Y',[I])
-        X=slicevol_2(X)
-        X=ecl_distance_2(X)
-        writeh5slice(X,Path_compact,'X',Shape=[128,128,6])
-        writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
-
-# REVISED DEEPORE
-# Reason -> if we change slice volume, we change how the compact dataset is created
-# Revision -> changing parameters for writeh5slice() call from 3 to 9, passes 2 as param to slicevol and ecl_distance
-def create_compact_dataset_3(Path_complete,Path_compact):
-    S=hdf_shapes(Path_complete,['X'])
-    for I in range(S[0][0]):
-        X=readh5slice(Path_complete,'X',[I])
-        Y=readh5slice(Path_complete,'Y',[I])
-        X=slicevol_3(X)
-        X=ecl_distance_3(X)
-        writeh5slice(X,Path_compact,'X',Shape=[128,128,9])
-        writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
-
-# NEW FUNCTION
-# Reason -> directs to correct load model func based on how many slices requested
-def loadmodel(ModelType=3, properties=1515, n=1):
-  if n == 1:
-    return loadmodel_1(ModelType, properties)
-  elif n == 2:
-    return loadmodel_2(ModelType, properties)
-  elif n == 3:
-    return loadmodel_3(ModelType, properties)
-  else:
-    print("Error: Not a valid slice number.")
 
 # REVISED DEEPORE
 # Reason -> need to change names of models saved for different slices, change output shape for different property numbers
-# Revision -> model + modeltype + '_1', new parameter: properties
-def loadmodel_1(ModelType=3, properties=1515): # model type 3 seems to be the better one
-    Path='Model'+str(ModelType)+'_1.h5';
-    MIN,MAX=np.load('minmax_1.npy')
-    INPUT_SHAPE=[1,128,128,3];
-    OUTPUT_SHAPE=[1,properties,1];
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType,properties)
+# Revision -> model abd minmax file name changes depending on slices, number of properties to predict is calculated
+def loadmodel(ModelType=3, properties=None, n=1): # model type 3 seems to be the better one
+    # calculate property num
+    property_num=0
+    if properties is None:
+      property_num = 1515
+    else:
+      for prop in properties:
+        if prop < 15:
+          property_num += 1
+        else:
+          property_num += 100
+    Path='Model'+str(ModelType)+'_'+str(n)+'.h5';
+    MIN,MAX=np.load('minmax_'+str(n)+'.npy')
+    slices = 3*n
+    INPUT_SHAPE=[1,128,128,slices];
+    OUTPUT_SHAPE=[1,property_num,1];
+    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType,property_num)
     model.load_weights(Path)
     return model
-
-# REVISED DEEPORE
-# Reason -> load model needs to be updated for different slice volumes, change output shape for different property numbers
-# Revision -> adjusted array shape for 6 instead of 3,  new parameter: properties
-def loadmodel_2(ModelType=3, properties=1515):
-    Path='Model'+str(ModelType)+'_2.h5';
-    MIN,MAX=np.load('minmax_2.npy')
-    INPUT_SHAPE=[1,128,128,6];
-    OUTPUT_SHAPE=[1,properties,1];
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType, properties)
-    model.load_weights(Path)
-    return model
-
-# REVISED DEEPORE
-# Reason -> load model needs to be updated for different slice volumes, change output shape for different property numbers
-# Revision -> adjusted array shape for 6 instead of 3,  new parameter: properties
-def loadmodel_3(ModelType=3, properties=1515):
-    Path='Model'+str(ModelType)+'_3.h5';
-    MIN,MAX=np.load('minmax_3.npy')
-    INPUT_SHAPE=[1,128,128,9];
-    OUTPUT_SHAPE=[1,properties,1];
-    model=modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType, properties)
-    model.load_weights(Path)
-    return model
-
-# NEW FUNCTION
-# Reason -> directs to correct ecl dist func based on how many slices requested
-def ecl_distance(A, n):
-  if n == 1:
-    return ecl_distance_1(A)
-  elif n == 2:
-    return ecl_distance_2(A)
-  elif n == 3:
-    return ecl_distance_3(A)
-  else:
-    print("Error: Not a valid slice number.")
-
-# ORIGINAL DEEPORE
-def ecl_distance_1(A):
-    B=np.zeros((A.shape[0],128,128,3))
-    for I in range(A.shape[0]):
-        for J in range(A.shape[3]):
-            t=distance(np.squeeze(1-A[I,:,:,J]))-distance(np.squeeze(A[I,:,:,J]))
-            # t=normalize(t)
-            t=np.float32(t)/64
-
-            t[t>1]=1
-            t[t<-1]=-1
-
-            t = MaxPooling2D((2, 2)) (np.reshape(t,(1,256,256,1)))
-            t=np.float64(t)
-            B[I,:,:,J]=np.squeeze(t)
-    return B
 
 # REVISED DEEPORE
 # Reason -> ecl distance calculations need to be changed for different slice volumes
 # Revision -> adjusted shape arrays for 6 instead of 3
-def ecl_distance_2(A):
-    B=np.zeros((A.shape[0],128,128,6))
-    for I in range(A.shape[0]):
-        for J in range(A.shape[3]):
-            t=distance(np.squeeze(1-A[I,:,:,J]))-distance(np.squeeze(A[I,:,:,J]))
-            # t=normalize(t)
-            t=np.float32(t)/64
-
-            t[t>1]=1
-            t[t<-1]=-1
-
-            t = MaxPooling2D((2, 2)) (np.reshape(t,(1,256,256,1)))
-            t=np.float64(t)
-            B[I,:,:,J]=np.squeeze(t)
-    return B
-
-# REVISED DEEPORE
-# Reason -> ecl distance calculations need to be changed for different slice volumes
-# Revision -> adjusted shape arrays for 9 instead of 3
-def ecl_distance_3(A):
-    B=np.zeros((A.shape[0],128,128,9))
+def ecl_distance(A, n=1):
+    B=np.zeros((A.shape[0],128,128,3*n))
     for I in range(A.shape[0]):
         for J in range(A.shape[3]):
             t=distance(np.squeeze(1-A[I,:,:,J]))-distance(np.squeeze(A[I,:,:,J]))
@@ -433,12 +272,8 @@ def prep(Data, n=1, properties=None):
 def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_size=100,ModelType=3, n=1, properties=None):
 
     condensed_properties = properties
-    num_single_vals = 0
-    num_range_vals = 0
     if properties is None:
       properties = list(range(1515))
-      num_single_vals = 15
-      num_range_vals = 15
     else:
       # map the properties from 1-30 to 1-1515
       mapped_properties = []
@@ -446,11 +281,9 @@ def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_s
         # if under 15 just add to new array
         if 0 <= prop < 15:
           mapped_properties.append(prop)
-          num_single_vals += 1
         # if over 15, add mapped 100 values
         elif prop >= 15:
           val = ((prop-15)*100)+15
-          num_range_vals += 1
           for i in range (0, 100):
             mapped_properties.append(val+i)
       properties=mapped_properties
@@ -581,6 +414,11 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
 # Reason -> slice volume affects how ecl_distance is calulated
 # Revision -> takes slice vol as parameter n and passes parameter to ecl_distance
 def feedsampledata(A=None,FileName=None, n=1):
+
+    if n < 1 or n > 2:
+      print("Functionality for that slice volume has not been implemented. Please use n=1 for one slice along each axis, or n=2 for two slices along each axis.")
+      return
+
     if FileName!=None:
         extention=os.path.splitext(FileName)[1]
     else:
@@ -599,17 +437,30 @@ def feedsampledata(A=None,FileName=None, n=1):
             A=np.int8(A!=0)
             LO,HI=makeblocks(A.shape,w=256,ov=.1)
             N=len(HI[0])*len(HI[1])*len(HI[2]) # number of subsamples
-            AA=np.zeros((N,256,256,3))
+
+            AA=np.zeros((N,256,256,3*n))
             a=0
             for I in range(len(LO[0])):
                 for J in range(len(LO[1])):
                     for K in range(len(LO[2])):
-                        temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J],LO[2][K]:HI[2][K]]
+                      temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J],LO[2][K]:HI[2][K]]
+                      if n == 1:
                         temp1=np.squeeze(temp[int(temp.shape[0]/2),:,:]);
                         temp2=np.squeeze(temp[:,int(temp.shape[1]/2),:]);
                         temp3=np.squeeze(temp[:,:,int(temp.shape[2]/2)]);
                         AA[a,...]=np.stack((temp1,temp2,temp3),axis=2)
                         a=a+1
+                      elif n == 2:
+                        temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J],LO[2][K]:HI[2][K]]
+                        temp1=np.squeeze(temp[int(temp.shape[0]/3),:,:]);
+                        temp2=np.squeeze(temp[2*int(temp.shape[0]/3),:,:]);
+                        temp3=np.squeeze(temp[:,int(temp.shape[1]/3),:]);
+                        temp4=np.squeeze(temp[:,2*int(temp.shape[1]/3),:]);
+                        temp5=np.squeeze(temp[:,:,int(temp.shape[2]/3)]);
+                        temp6=np.squeeze(temp[:,:,2*int(temp.shape[2]/3)]);
+                        AA[a,...]=np.stack((temp1,temp2,temp3,temp4,temp5,temp6),axis=2)
+                        a=a+1
+
     if extention=='.png' or extention=='.jpg' or extention=='.bmp':
         A=plt.imread(FileName)
         if len(A.shape)!=2:
@@ -621,24 +472,30 @@ def feedsampledata(A=None,FileName=None, n=1):
         A=np.int8(A!=0)
         LO,HI=makeblocks(A.shape,w=256,ov=.1)
         N=len(HI[0])*len(HI[1]) # number of subsamples
-        AA=np.zeros((N,256,256,3))
+        AA=np.zeros((N,256,256,3*n))
         a=0
         for I in range(len(LO[0])):
             for J in range(len(LO[1])):
                 temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J]]
-                AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
+                if n == 1:
+                  AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
+                else:
+                  AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1),temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)  # add double of each direction for 6 slices of 3d images
                 a=a+1
     if FileName==None:
         if len(A.shape)==2:
             A=np.int8(A!=0)
             LO,HI=makeblocks(A.shape,w=256,ov=.1)
             N=len(HI[0])*len(HI[1]) # number of subsamples
-            AA=np.zeros((N,256,256,3))
+            AA=np.zeros((N,256,256,3*n))
             a=0
             for I in range(len(LO[0])):
                 for J in range(len(LO[1])):
                     temp=A[LO[0][I]:HI[0][I],LO[1][J]:HI[1][J]]
-                    AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
+                    if n == 1:
+                      AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)
+                    else:
+                      AA[a,...]=np.stack((temp,np.flip(temp,axis=0),np.flip(temp,axis=1),temp,np.flip(temp,axis=0),np.flip(temp,axis=1)),axis=2)  # add double of each direction for 6 slices of 3d images
                     a=a+1
 
     B=ecl_distance(AA, n)
