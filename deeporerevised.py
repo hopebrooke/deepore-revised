@@ -15,7 +15,7 @@ Original file is located at
 import h5py
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D
+from tensorflow.keras.layers import Conv2D, Input, MaxPooling2D, Add
 from tensorflow.keras.models import Model
 import os, sys
 import matplotlib.pyplot as plt
@@ -345,6 +345,7 @@ def trainmodel(DataName,TrainList,EvalList,retrain=0,reload=0,epochs=100,batch_s
 # REVISED DEEPORE
 # Reason -> changing load/save names depending on model slices, need to define how many single value properties are being predicted, change which variable names are shown based on which properties are predicted
 # Revision -> Takes slice vol as parameter n, changes minmax load name and tested model save name, takes properties predicted as parameter, uses num of single value instead of 15, and uses list to determine which variable names are used
+#            changed graph so x and y axes are same.
 def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
     condensed_properties = properties
     num_single_vals = 0
@@ -403,12 +404,14 @@ def testmodel(model,DataName,TestList,ModelType=3, n=1, properties=None):
         plt.xlabel('Ground truth')
         plt.tick_params(direction="in")
         plt.text(.5,.9,VarNames[properties[I]],horizontalalignment='center',transform=ax.transAxes) # make sure to get relevant var names if subset of properties
-        plt.xlim(np.min(X),np.max(X))
-        plt.ylim(np.min(Y),np.max(Y))
+        min_val = min(np.min(X), np.min(Y))
+        max_val = max(np.max(X), np.max(Y))
+        plt.xlim(min_val,max_val)
+        plt.ylim(min_val,max_val)
         if I==0:
             ax.set_yscale('log')
             ax.set_xscale('log')
-    plt.savefig('images/Single-value_Features_'+str(n)+'.png')
+    plt.savefig('images/Single-value_Features'+str(ModelType)+'_S'+str(n)+'_P'+str(len(properties))+'.png')
 
 # REVISED DEEPORE
 # Reason -> slice volume affects how ecl_distance is calulated
@@ -543,11 +546,12 @@ def predict(model,A,res=5, n=1, properties=None):
     for i in range (0, num_range_vals):
       # get that range based on how many single and range values calculated:
       func=y[(i*d)+num_single_vals:(i+1)*d + num_single_vals]
+      # this is never entered in DeePore
       if properties[i+num_single_vals] in [19,20,21,22,23,24,29]:
         func = func * res
-      elif properties[i+num_single_vals] in [18]:
+      if properties[i+num_single_vals] in [18]:
         func = func / res
-      elif properties[i+num_single_vals] in [25]:
+      if properties[i+num_single_vals] in [25]:
         func = func * res * res
       output = np.append(output, func)
 
@@ -678,6 +682,15 @@ def prettyresult(vals,FileName,units='um',verbose=1, properties=None):
                     print('To see all the results please refer to this file: \n')
                     print(FileName+'\n')
                     break
+
+# ORIGINAL DEEPORE
+# CHANGED TO LIMIT DATASET FOR TRAINING!!!!!!!!!
+def splitdata(List):
+    N=np.int32([0,len(List)*.8,len(List)*.9,len(List)])
+    TrainList=List[N[0]:N[1]]
+    EvalList=List[N[1]:N[2]]
+    TestList=List[N[2]:N[3]]
+    return TrainList, EvalList, TestList
 
 # REVISED DEEPORE MODELS
 # Reason -> different num of property predictions
@@ -833,6 +846,126 @@ def DeePore9(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
     model.compile(optimizer='adam', loss=WBCE, metrics=['mse'])
     return model
 
+def DeePoreRevised1(INPUT_SHAPE,OUTPUT_SHAPE,property_num): # varying filters, 3 blocks, 2 with residual connections
+    inputs = Input(INPUT_SHAPE[1:])
+    # convolutional block 1
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+    # convolutional block 2 with residual
+
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    residual2 = Conv2D(12,(1,1), kernel_initializer='he_normal', padding='same')(p1)
+    c2residual = Add()([c2,residual2])
+    p2 = MaxPooling2D((2, 2)) (c2residual)
+
+    # convolutional block 3 with residual
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    residual3 = Conv2D(18,(1,1), kernel_initializer='he_normal', padding='same')(p2)
+    c3residual = Add()([c3,residual3])
+    p3 = MaxPooling2D((2, 2)) (c3residual)
+
+    # dense/flatten
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
+    return model
+
+def DeePoreRevised2(INPUT_SHAPE,OUTPUT_SHAPE,property_num): # varying filters, 4 blocks w/ residuals
+    inputs = Input(INPUT_SHAPE[1:])
+    # conv block 1
+    c1 = Conv2D(6, (8, 8), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+
+    # conv block 2 with residual
+    c2 = Conv2D(12, (4, 4), kernel_initializer='he_normal', padding='same') (p1)
+    residual2 = Conv2D(12,(1,1), kernel_initializer='he_normal', padding='same')(p1)
+    c2residual = Add()([c2,residual2])
+    p2 = MaxPooling2D((2, 2)) (c2residual)
+
+    # conv block 3 with residual
+    c3 = Conv2D(18, (2, 2), kernel_initializer='he_normal', padding='same') (p2)
+    residual3 = Conv2D(18,(1,1), kernel_initializer='he_normal', padding='same')(p2)
+    c3residual = Add()([c3,residual3])
+    p3 = MaxPooling2D((2, 2)) (c3residual)
+
+    # conv block 4 with residual
+    c4 = Conv2D(24, (2, 2), kernel_initializer='he_normal', padding='same') (p3)
+    residual4 = Conv2D(24,(1,1), kernel_initializer='he_normal', padding='same')(p3)
+    c4residual = Add()([c4,residual4])
+    p4 = MaxPooling2D((2, 2)) (c4residual)
+
+    f=tf.keras.layers.Flatten()(p4)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
+    return model
+
+def DeePoreRevised3(INPUT_SHAPE,OUTPUT_SHAPE,property_num): # fixed filter, 3 blocks w/ residuals
+    inputs = Input(INPUT_SHAPE[1:])
+    # conv blovk 1
+    c1 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+
+    # conv block 2 with residual
+    c2 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
+    residual2 = Conv2D(24,(1,1), kernel_initializer='he_normal', padding='same')(p1)
+    c2residual = Add()([c2,residual2])
+    p2 = MaxPooling2D((2, 2)) (c2residual)
+
+    # conv block 3 with residual
+    c3 = Conv2D(36, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
+    residual3 = Conv2D(36,(1,1), kernel_initializer='he_normal', padding='same')(p2)
+    c3residual = Add()([c3,residual3])
+    p3 = MaxPooling2D((2, 2)) (c3residual)
+
+    f=tf.keras.layers.Flatten()(p3)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    optim=tf.keras.optimizers.RMSprop(1e-5)
+    model.compile(optimizer=optim, loss='mse', metrics=['mse'])
+    return model
+
+def DeePoreRevised4(INPUT_SHAPE,OUTPUT_SHAPE,property_num):
+    inputs = Input(INPUT_SHAPE[1:])
+    # conv block 1
+    c1 = Conv2D(6, (3, 3), kernel_initializer='he_normal', padding='same') (inputs)
+    p1 = MaxPooling2D((2, 2)) (c1)
+
+    # conv block 2 with residual
+    c2 = Conv2D(12, (3, 3), kernel_initializer='he_normal', padding='same') (p1)
+    residual2 = Conv2D(12,(1,1), kernel_initializer='he_normal', padding='same')(p1)
+    c2residual = Add()([c2,residual2])
+    p2 = MaxPooling2D((2, 2)) (c2residual)
+
+    # conv block 3 with residual
+    c3 = Conv2D(18, (3, 3), kernel_initializer='he_normal', padding='same') (p2)
+    residual3 = Conv2D(18,(1,1), kernel_initializer='he_normal', padding='same')(p2)
+    c3residual = Add()([c3,residual3])
+    p3 = MaxPooling2D((2, 2)) (c3residual)
+
+    # conv block 4 with residual
+    c4 = Conv2D(24, (3, 3), kernel_initializer='he_normal', padding='same') (p3)
+    residual4 = Conv2D(24,(1,1), kernel_initializer='he_normal', padding='same')(p3)
+    c4residual = Add()([c4,residual4])
+    p4 = MaxPooling2D((2, 2)) (c4residual)
+
+    f=tf.keras.layers.Flatten()(p4)
+    d1=tf.keras.layers.Dense(property_num, activation=tf.nn.leaky_relu)(f)
+    d2=tf.keras.layers.Dense(property_num, activation=tf.nn.sigmoid)(d1)
+    outputs=d2
+    model = Model(inputs=[inputs], outputs=[outputs])
+    model.compile(optimizer='adam', loss=WBCE, metrics=['mse'])
+    return model
+
 def modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType,property_num=1515):
     if ModelType==1:
         model=DeePore1(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
@@ -852,6 +985,14 @@ def modelmake(INPUT_SHAPE,OUTPUT_SHAPE,ModelType,property_num=1515):
         model=DeePore8(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
     if ModelType==9:
         model=DeePore9(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==10:
+        model=DeePoreRevised1(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==11:
+        model=DeePoreRevised2(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==12:
+        model=DeePoreRevised3(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
+    if ModelType==13:
+        model=DeePoreRevised4(INPUT_SHAPE,OUTPUT_SHAPE,property_num)
     return model
 
 # ORIGINAL DEEPORE
@@ -923,14 +1064,6 @@ def nowstr():
     from datetime import datetime
     now = datetime.now()
     return now.strftime("%d-%b-%Y %H.%M.%S")
-
-# ORIGINAL DEEPORE
-def splitdata(List):
-    N=np.int32([0,len(List)*.8,len(List)*.9,len(List)])
-    TrainList=List[N[0]:N[1]]
-    EvalList=List[N[1]:N[2]]
-    TestList=List[N[2]:N[3]]
-    return TrainList, EvalList, TestList
 
 # ORIGINAL DEEPORE
 def mat2np(Name): # load the MATLAB array as numpy array
