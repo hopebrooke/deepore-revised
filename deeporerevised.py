@@ -546,7 +546,7 @@ def predict(model,A,res=5, n=1, properties=None):
     for i in range (0, num_range_vals):
       # get that range based on how many single and range values calculated:
       func=y[(i*d)+num_single_vals:(i+1)*d + num_single_vals]
-      # this is never entered in DeePore
+      # # this is never entered in DeePore
       if properties[i+num_single_vals] in [19,20,21,22,23,24,29]:
         func = func * res
       if properties[i+num_single_vals] in [18]:

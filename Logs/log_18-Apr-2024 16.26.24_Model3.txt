@@ -1,0 +1,5 @@
+# Path to train file: 
+/content/drive/MyDrive/Project/DeePore_Compact_Data.h5
+# Start time: 
+18-Apr-2024 16.26.24
+# Training loss                         Validation loss
