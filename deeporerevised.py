@@ -140,7 +140,7 @@ def showentry_2(A):
 # Revision -> directs to correct slice vol/ecl_distance function, changes shape of h5 slice written
 def create_compact_dataset(Path_complete,Path_compact, n=1):
     S=hdf_shapes(Path_complete,['X'])
-    for I in range(S[0][0]):
+    for I in range(5):
         X=readh5slice(Path_complete,'X',[I])
         Y=readh5slice(Path_complete,'Y',[I])
         if n == 1:
@@ -149,8 +149,31 @@ def create_compact_dataset(Path_complete,Path_compact, n=1):
           X=slicevol_2(X)
         else:
           print("Functionality for that quantity of slices has not been implemented.")
-        X=ecl_distance(X, n)
-        writeh5slice(X,Path_compact,'X',Shape=[128,128,3*n])
+        #X=ecl_distance(X, n)
+
+        B=np.zeros((X.shape[0],128,128,3*n))
+        for I in range(X.shape[0]):
+            for J in range(X.shape[3]):
+                t=distance(np.squeeze(X[I,:,:,J]))  #distance(np.squeeze(1-X[I,:,:,J]))-
+                print("Distance")
+                print(t)
+                # t=normalize(t)
+                # t=np.float32(t)/64
+
+                t[t>1]=1
+                t[t<-1]=-1
+
+                t = MaxPooling2D((2, 2)) (np.reshape(t,(1,256,256,1)))
+                t=np.float64(t)
+                print("maxpool")
+                print(t)
+                t_rescaled = ((t + 1) / 2 * 255).astype(np.uint8)
+                print("converting")
+                print(t_rescaled)
+                B[I,:,:,J]=np.squeeze(t_rescaled)
+                print(B.shape)
+
+        writeh5slice(B,Path_compact,'X',Shape=[128,128,3*n])
         writeh5slice(Y,Path_compact,'Y',Shape=[1515,1])
 
 # REVISED DEEPORE
@@ -684,7 +707,6 @@ def prettyresult(vals,FileName,units='um',verbose=1, properties=None):
                     break
 
 # ORIGINAL DEEPORE
-# CHANGED TO LIMIT DATASET FOR TRAINING!!!!!!!!!
 def splitdata(List):
     N=np.int32([0,len(List)*.8,len(List)*.9,len(List)])
     TrainList=List[N[0]:N[1]]
