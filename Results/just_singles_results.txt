@@ -1,0 +1,27 @@
+DeePore output results including 15 single-value
+paramters, 4 functions and 11 distributions
+__________________________________________________
+        ### Single-value parameters ###
+__________________________________________________
+
+Properties                              Value
+--------------------------------------------------
+Absolute Permeability (um2)             1.4849155
+Formation Factor (ratio)                29.1617002
+Cementation Factor (ratio)              2.7262139
+pore density (1/um3)                    1.4e-06
+Tortuosity (ratio)                      1.4838225
+Average Coordination Number             3.3672887
+Average Throat Radius (um)              18.6163024
+Average Pore Radius (um)                32.1745076
+Average Throat Length (um)              84.1667306
+Pore to Throat Aspect ratio             5.0479212
+Specific Surface (1/um)                 0.0260337
+Pore Sphericity (ratio)                 0.7321047
+Grain Sphericity (ratio)                0.8029918
+Average Grain Radius (um)               53.4273208
+Relative Young Module (ratio)           0.2287141
+
+__________________________________________________
+       ### Functions and distributions ###
+__________________________________________________
