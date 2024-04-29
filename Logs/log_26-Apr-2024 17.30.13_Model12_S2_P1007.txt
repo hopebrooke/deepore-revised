@@ -1,0 +1,5 @@
+# Path to train file: 
+/content/drive/MyDrive/Project/new_compact_dataset_2.h5
+# Start time: 
+26-Apr-2024 17.30.13
+# Training loss                         Validation loss
