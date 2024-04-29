@@ -17,19 +17,19 @@ Eg. Model12_S2_P1515.h5 is the model trained using deepore revised scenario 2, o
 This, however, is all handled by the functions, for training, testing, predicting, loading etc. all functions take parameters ModelType=3 or 11 or 12, n=1 or 2, properties = [list of indices of 30 og properties]
 More detail provided in the demo 
 
-# Data
+### Data
 - from deepore original
 
-# Images
+### Images
 - Contains first entry visualisation
 - Contains probability dist for single value for all 7 models
 - Contains reference/estimate plots for single value for all 7 models
 - Contains example for functions/distributions for all 7 models
 
-# Logs
+### Logs
 - creates training model logs, as models were trained in steps using reload, these logs are split over ultiple files for each model
 
-# Other
+### Other
 - DeePore.py is contained purely as a reference
 - All new files have both .py and .ipynb versions of the same code for ease of use
 - DeePoreRevised.py is new library, all code is clearly marked as new, revised, or original deepore
