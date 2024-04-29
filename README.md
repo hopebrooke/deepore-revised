@@ -2,7 +2,7 @@
 
 This repository contains the code for Hope Brooke's final year project, please see the report for context.
 
-### Models
+## Models
 There are 7 models provided:
 1. Original DeePore3 on 3 slice data on all properties
 2. DeePoreRevised1 on 3 slice data on all properties
@@ -21,14 +21,11 @@ Eg. Model12_S2_P1515.h5 is the model trained using deepore revised scenario 2, o
 
 This is all handled by the functions for ease of use. All relevant functions take parameters: ModelType=3 or 11 or 12 (default); n=1 or 2 (default); properties = [list of indices of 30 properties] eg. [1,5,11,15,19], default is all 30.
 
-### Data
-- from deepore original
+## Subfolders
+**Data/ - ** This folder contains material data samples provided by the original DeePore project
 
-### Images
-- Contains first entry visualisation
-- Contains probability dist for single value for all 7 models
-- Contains reference/estimate plots for single value for all 7 models
-- Contains example for functions/distributions for all 7 models
+#### Images
+This folder contains the graphs generated for the evaluation of all seven models. Including probability distributions for single values, reference/estimate plots for single values and example reference/estimate plots for functions and distributions.
 
 ### Logs
 - creates training model logs, as models were trained in steps using reload, these logs are split over ultiple files for each model
