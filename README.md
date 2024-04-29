@@ -36,3 +36,5 @@ More detail provided in the demo
 - DeePoreRevised.py is new library, all code is clearly marked as new, revised, or original deepore
 - DatasetCreation is the code used to create and validate new functionality
 - ModelTraining is the code used to train and test all 7 models
+- ModelEval provides the code used to plot all evaluation functions
+- Demo.py has 3 demos which show how to predict properties for a material, and how to retrain and test models of different types, input data slices and proeprties.
