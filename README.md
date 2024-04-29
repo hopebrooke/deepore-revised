@@ -1,6 +1,6 @@
 # DeePoreRevised
 
-This repository contains the code for Hope Brooke's final year project, please see the report for context.
+This repository contains the code for Hope Brooke's (sc21hb) final year project, please see the report for context.
 
 This project is built off DeePore, a deep learning workflow for the rapid characterisation of porous materials (https://github.com/ArashRabbani/DeePore). A copy of the original DeePore library has been created, named _DeePoreRevised.py_, which has been extended. All functionality in the file is clearly labelled as new, revised or original. Any new or revised functionality has justifications for it, and revised functionality also includes a brief outline of what has been edited. The original library is included to facilitate comparisons (_DeePore.py_).  
 
