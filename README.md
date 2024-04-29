@@ -2,16 +2,17 @@
 
 This repository contains the code for Hope Brooke's final year project, please see the report for context.
 
-This project is built off DeePore, a deep learning workflow for the rapid characterisation of porous materials (https://github.com/ArashRabbani/DeePore). A copy of the original DeePore library has been created, named _DeePoreRevised.py_, which has been extended. All functionality in the file is clearly labelled as new, revised or original. Any new or revised functionality has justifications for it, and revised functionality also includes a brief outline of what has been edited. The original library is included to facilitate comparisons (_DeePore.py_).
+This project is built off DeePore, a deep learning workflow for the rapid characterisation of porous materials (https://github.com/ArashRabbani/DeePore). A copy of the original DeePore library has been created, named _DeePoreRevised.py_, which has been extended. All functionality in the file is clearly labelled as new, revised or original. Any new or revised functionality has justifications for it, and revised functionality also includes a brief outline of what has been edited. The original library is included to facilitate comparisons (_DeePore.py_).  
 
-### Other
-- DeePore.py is contained purely as a reference
-- All new files have both .py and .ipynb versions of the same code for ease of use
-- DeePoreRevised.py is new library, all code is clearly marked as new, revised, or original deepore
-- DatasetCreation is the code used to create and validate new functionality
-- ModelTraining is the code used to train and test all 7 models
-- ModelEval provides the code used to plot all evaluation functions
-- Demo.py has 3 demos which show how to predict properties for a material, and how to retrain and test models of different types, input data slices and proeprties.
+This workflow is designed to be used by others, so while the majority of the functionality is defined in _DeePoreRevised.py_, the process of executing this has been completed separately. These processes are in relevant files:
+- **_DatasetCreation.ipynb_** contains the code used to create and validate a new compact dataset from the original 3D material dataset.
+- **_ModelTraining.ipynb_** contains the code used to train and test all models defined in the report.
+- **_ModelEval.ipynb_** contains the code used to investigate the results and plot graphs to evaluate the models.
+Please refer to the comments in these files for more details on how they can be run.
+
+As stated above, the functionality is provided as a library to facilitate the use by others in future. Because of this, a **_Demo.ipynb_** file has been created containing three demos which show how to load a pretrained model to predict properties for a material, and how to retrain and test models of different types, input data slices, and properties.
+
+As Google Colab is used, both the notebook files (_.ipynb_) and the python files (_.py_) are included for all executable code.
 
 
 ## Directory Structure  
