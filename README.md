@@ -5,7 +5,7 @@ This repository contains the code for Hope Brooke's (sc21hb) final year project,
 This project is built off DeePore, a deep learning workflow for the rapid characterisation of porous materials (https://github.com/ArashRabbani/DeePore). A copy of the original DeePore library has been created, named _DeePoreRevised.py_, which has been extended. All functionality in the file is clearly labelled as new, revised or original. Any new or revised functionality has justifications for it, and revised functionality also includes a brief outline of what has been edited. The original library is included to facilitate comparisons (_DeePore.py_).  
 
 This workflow is designed to be used by others, so while the majority of the functionality is defined in _DeePoreRevised.py_, the process of executing this has been completed separately. These processes are in relevant files:
-- **_ModelDataset.ipynb_** contains the code used to create and validate a new compact dataset from the original 3D material dataset.
+- **_ModelDataset.ipynb_** contains the code used to create and validate a new compact dataset from the original 3D material dataset. The generated datasets are stored in a Google Drive folder shared with the supervisor and assessor.
 - **_ModelTraining.ipynb_** contains the code used to train and test all models defined in the report.
 - **_ModelEval.ipynb_** contains the code used to investigate the results and plot graphs to evaluate the models.
 
