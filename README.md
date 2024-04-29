@@ -22,13 +22,13 @@ Equivalent notebook files (_.ipynb_) and python files (_.py_) are included for a
 
 ### Models
 There are 7 models provided:
-1. Original DeePore3 (DP3) on 3 slice data on all properties
-2. DeePoreRevised1 (DPR1) on 3 slice data on all properties
-3. DeePoreRevised2 (DPR2) on 3 slice data on all properties
-4. DeePoreRevised1 (DPR1) 6 slice data on all properties
-5. DeePoreRevised2 (DPR2) 6 slice data on all properties
-6. DeePoreRevised2 (DPR2) 6 slice data on Group 1 properties
-7. DeePoreRevised2 (DPR2) 6 slice data on Group 2 properties
+1. Original DeePore3 (DP3) on 3 slice data on all properties.
+2. DeePoreRevised1 (DPR1) on 3 slice data on all properties.
+3. DeePoreRevised2 (DPR2) on 3 slice data on all properties.
+4. DeePoreRevised1 (DPR1) 6 slice data on all properties.
+5. DeePoreRevised2 (DPR2) 6 slice data on all properties.
+6. DeePoreRevised2 (DPR2) 6 slice data on Group 1 properties.
+7. DeePoreRevised2 (DPR2) 6 slice data on Group 2 properties.
 
 Models and related files follow the format of Model**x**_S**y**_P**z**.h5, or Tested_Data_Modelx_Sy_Pz.mat, where...
 - **x** is the model number: 3 is DP3; 11 is DPR1; 12 is DPR2. Intermediate numbers are not used as there is still code available to for DP models 1-9, these are not present in the repository but can be trained.
