@@ -28,8 +28,8 @@ import os
 import random
 
 
-dataset_3slice = '/content/drive/MyDrive/Project/DeePore_Compact_Data.h5'   # replace with route to three-slice dataset
-dataset_6slice = '/content/drive/MyDrive/Project/DeePoreRevised_Compact_Data.h5'  # replace with route to six-slice dataset
+dataset_3slice = '/content/drive/MyDrive/hb-final-project-data/DeePore_Compact_Data.h5'   # replace with route to three-slice dataset
+dataset_6slice = '/content/drive/MyDrive/hb-final-project-data/DeePoreRevised_Compact_Data.h5'  # replace with route to six-slice dataset
 
 
 # training and validation MSE for all models, loaded from model training output:
