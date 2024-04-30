@@ -21,9 +21,9 @@ import h5py
 import DeePoreRevised as dpr
 
 # define original dataset route
-full_dataset = '/content/drive/MyDrive/Project/DeePore_Dataset.h5'
+full_dataset = '/content/drive/MyDrive/hb-final-project-data/DeePore_Dataset.h5'
 # define new dataset route
-new_dataset = '/content/drive/MyDrive/Project/DeePoreRevised_Compact_Data.h5'
+new_dataset = '/content/drive/MyDrive/hb-final-project-data/DeePoreRevised_Compact_Data.h5'
 
 # create the dataset
 dpr.create_compact_dataset(full_dataset, new_dataset, n=2)  # n=2 means two slices from each direction of the material, set n=1 to recreate the original DeePore compact dataset
